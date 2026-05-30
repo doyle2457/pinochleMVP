@@ -1,0 +1,23 @@
+{
+    "python.defaultInterpreterPath": "D:\\Python314\\python.exe",
+    "python-envs.pythonProjects": [
+        {
+            "path": ".",
+            "envManager": "ms-python.python:system",
+            "packageManager": "ms-python.python:pip"
+        }
+    ],
+    "editor.fontSize": 10,
+    "terminal.integrated.fontSize": 10,
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.black-formatter",
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "always"
+        }
+    },
+    "isort.args": [
+        "--profile",
+        "black"
+    ]
+}

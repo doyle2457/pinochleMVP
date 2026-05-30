@@ -1,0 +1,36 @@
+pinochleMVP/
+│
+├── .vscode/
+│     settings.json
+│
+├── main/
+│   │   mainwindow.ui
+│   │   __init__.py
+│   │
+│   ├── modules/
+│   │   │   __init__.py
+│   │   │   card.py
+│   │   │   deck.py
+│   │   │   deck_org.py
+│   │   │   game.py
+│   │   │   hand.py
+│   │   │   main.py
+│   │   │   meld.py
+│   │   │   options.py
+│   │   │   round.py
+│   │   │   score.py
+│   │   │   trick.py
+│   │   │   turn.py
+│   │   │   ui_mainwindow.py
+│   │   │   wonTrick.py
+│   │   │
+│   │   └── __pycache__/
+│   │
+│   ├── utils/
+│   │   └── __init__.py
+│   │
+│   └── __pycache__/
+│
+└── # PythonizeCodingStyle.txt
+    OpenDesignerUI.bat
+    VS Code `settings.json` template.txt

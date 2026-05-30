@@ -1,0 +1,170 @@
+# **Pythonize Your Coding Style: A Markdown Guide to Pythonic Naming Conventions**  
+*A practical, VS Code–friendly reference for writing clean, idiomatic, and maintainable Python code.*
+
+Python’s philosophy emphasizes readability and consistency. Following established naming conventions—primarily from **PEP 8**—helps ensure your code is clear, predictable, and easy for others (and future you) to understand.   [peps.python.org](https://peps.python.org/pep-0008/)
+
+Below is a structured, Markdown‑formatted guide you can drop directly into your project documentation.
+
+---
+
+# **Pythonic Naming Conventions**
+
+## **1. Folder & Package Naming**
+- Use **short, all‑lowercase names**.  
+- Prefer **underscores only when necessary** for readability.  
+- Each folder intended as a package should contain an `__init__.py` file.   [Python Guides](https://pythonguides.com/python-naming-conventions/)
+
+**Examples:**  
+- `utils/`  
+- `data_processing/`  
+- `api/`
+
+---
+
+## **2. File (Module) Naming**
+Modules are simply Python files.  
+- Use **lowercase_with_underscores**.  
+- Keep names **descriptive but concise**.   [GeeksForGeeks](https://www.geeksforgeeks.org/python/python-naming-conventions/)
+
+**Examples:**  
+- `math_operations.py`  
+- `string_utils.py`  
+- `config_loader.py`
+
+---
+
+## **3. Class Naming**
+Classes use **CapWords** (also called PascalCase or CamelCase).  
+- No underscores.  
+- Each word starts with a capital letter.   [GeeksForGeeks](https://www.geeksforgeeks.org/python/python-naming-conventions/)
+
+**Examples:**  
+- `Car`  
+- `UserProfile`  
+- `DataProcessor`
+
+---
+
+## **4. Function Naming**
+Functions use **snake_case**.  
+- Lowercase with underscores.  
+- Should be **action‑oriented** and descriptive.   [Python Guides](https://pythonguides.com/python-naming-conventions/)
+
+**Examples:**  
+- `load_data()`  
+- `calculate_total()`  
+- `send_email_notification()`
+
+---
+
+## **5. Variable Naming**
+Variables also use **snake_case**.  
+- Keep names meaningful and readable.  
+- Avoid abbreviations unless they are widely understood.   [coderivers.org](https://coderivers.org/blog/naming-conventions-in-python/)
+
+**Examples:**  
+- `user_id`  
+- `total_price`  
+- `is_valid`
+
+---
+
+## **6. Constant Naming**
+Constants use **UPPERCASE_WITH_UNDERSCORES**.  
+- Typically defined at the module level.  
+- Used for values that should not change.   [GeeksForGeeks](https://www.geeksforgeeks.org/python/python-naming-conventions/)
+
+**Examples:**  
+- `MAX_CONNECTIONS = 10`  
+- `DEFAULT_TIMEOUT = 30`  
+- `API_BASE_URL = "https://example.com"`
+
+---
+
+## **7. Compound Naming Options**
+Python supports several naming patterns depending on context:
+
+### **snake_case**  
+Used for:  
+- functions  
+- variables  
+- file names  
+- folder names (optional)
+
+**Examples:**  
+- `process_user_input`  
+- `fetch_api_data`
+
+### **PascalCase / CapWords**  
+Used for:  
+- classes  
+- exceptions
+
+**Examples:**  
+- `InvalidUserError`  
+- `DatabaseConnection`
+
+### **UPPER_CASE_WITH_UNDERSCORES**  
+Used for:  
+- constants  
+- environment configuration values
+
+**Examples:**  
+- `LOG_LEVEL`  
+- `MAX_RETRIES`
+
+---
+
+## **8. Recommended Project Structure (Pythonic + VS Code Friendly)**  
+Based on common best practices for repository layout.   [The Hitchhiker's Guide to Python](https://docs.python-guide.org/writing/structure/)
+
+```
+project_name/
+│
+├── README.md
+├── requirements.txt
+├── setup.py
+├── .vscode/
+│   ├── settings.json
+│   └── launch.json
+│
+├── project_name/
+│   ├── __init__.py
+│   ├── core.py
+│   ├── helpers.py
+│   └── config.py
+│
+└── tests/
+    ├── test_core.py
+    └── test_helpers.py
+```
+
+---
+
+## **9. Quick Reference Table**
+
+| Element | Convention | Example |
+|--------|------------|---------|
+| Folder | lowercase or lowercase_with_underscores | `data_processing/` |
+| File (module) | lowercase_with_underscores | `string_utils.py` |
+| Class | PascalCase / CapWords | `UserManager` |
+| Function | snake_case | `get_user_data()` |
+| Variable | snake_case | `retry_count` |
+| Constant | UPPER_CASE_WITH_UNDERSCORES | `MAX_RETRIES` |
+
+---
+
+## **10. Additional Pythonic Tips**
+- Prefer **readable names** over short ones.  
+- Avoid ambiguous names like `data`, `info`, `temp`.  
+- Use verbs for functions and nouns for classes.  
+- Maintain consistency within a project—more important than strict adherence to PEP 8.   [peps.python.org](https://peps.python.org/pep-0008/)
+
+---
+
+If you'd like, I can also generate:  
+- A **VS Code settings.json** template for enforcing formatting  
+- A **pre‑commit hook** for style checking  
+- A **linting + formatting setup** (Black, Ruff, Flake8, isort)
+
+Which would you like to explore next?
