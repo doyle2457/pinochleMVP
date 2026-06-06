@@ -1,0 +1,21 @@
+class ClassName:
+    """
+    Short summary describing what the class represents.
+
+    A longer description can follow here. Explain the purpose of the class,
+    how it should be used, important behaviors, and any assumptions.
+
+    Attributes:
+        attribute1 (type): Description of attribute1.
+        attribute2 (type): Description of attribute2.
+
+    Methods:
+        method_name: Optional section. Usually omitted because methods
+            have their own docstrings.
+
+    Examples:
+        Example usage can go here:
+        
+        >>> obj = ClassName(value)
+        >>> obj.do_something()
+    """

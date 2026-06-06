@@ -1,6 +1,6 @@
 import sys
 
-from game import start_game
+# from game import start_game
 from PyQt5.QtWidgets import QApplication, QMainWindow
 from ui_mainwindow import Ui_MainWindow
 
@@ -20,7 +20,7 @@ def main():
     window = MainWindow()
     window.show()
 
-    start_game(window)
+    # start_game(window)
 
     sys.exit(app.exec_())
 

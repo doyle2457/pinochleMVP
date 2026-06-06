@@ -1,0 +1,20 @@
+def function_name(param1, param2, *args, **kwargs):
+    """
+    Short summary of what the function does.
+
+    A longer description can go here if needed. Explain the purpose,
+    behavior, assumptions, and any important details.
+
+    Args:
+        param1 (type): Description of the first parameter.
+        param2 (type): Description of the second parameter.
+        *args: Additional positional arguments.
+        **kwargs: Additional keyword arguments.
+
+    Returns:
+        type: Description of the return value.
+
+    Raises:
+        ErrorType: Condition under which the error is raised.
+    """
+    pass
