@@ -1,12 +1,5 @@
 {
     "python.defaultInterpreterPath": "D:\\Python314\\python.exe",
-    "python-envs.pythonProjects": [
-        {
-            "path": ".",
-            "envManager": "ms-python.python:system",
-            "packageManager": "ms-python.python:pip"
-        }
-    ],
     "editor.fontSize": 10,
     "terminal.integrated.fontSize": 10,
     "[python]": {
@@ -19,5 +12,6 @@
     "isort.args": [
         "--profile",
         "black"
-    ]
+    ],
+    "python-envs.defaultEnvManager": "ms-python.python:system"
 }
