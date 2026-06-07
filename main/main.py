@@ -1,27 +1,46 @@
+# main.py
 import sys
+from typing import Optional
 
-# from game import start_game
 from PyQt5.QtWidgets import QApplication, QMainWindow
+
+from game import Game
 from ui_mainwindow import Ui_MainWindow
 
 
 class MainWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
+
+        # Load UI
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
 
-        # Example: connect signals or add logic here
-        # self.ui.lblHand1.setText("Ready")
+        # Create game controller
+        self.game: Game = Game(sequences=2)
+
+        # Start a new game immediately (or attach to a button)
+        self.start_new_game()
+
+    # ---------------------------------------------------------
+    # GAME INTEGRATION
+    # ---------------------------------------------------------
+    def start_new_game(self) -> None:
+        """Create a new game and update the GUI."""
+        self.game.create_new_game()
+
+        # Example: show card indices in labels
+        self.ui.lblHand1.setText(str(self.game.hand1))
+
+    # self.ui.lblHand2.setText(str(self.game.hand2)) # Uncomment if you want to show hand2 as well
+
+    # Later: replace with card images in QLabels or QFrames
 
 
-def main():
+def main() -> None:
     app = QApplication(sys.argv)
     window = MainWindow()
     window.show()
-
-    # start_game(window)
-
     sys.exit(app.exec_())
 
 
