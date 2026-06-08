@@ -6,47 +6,23 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>800</width>
-    <height>600</height>
+    <width>1938</width>
+    <height>1033</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>MainWindow</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <widget class="QGroupBox" name="gbxTable">
+   <widget class="CardPanel" name="cpHand1">
     <property name="geometry">
      <rect>
-      <x>10</x>
-      <y>10</y>
-      <width>781</width>
-      <height>571</height>
+      <x>300</x>
+      <y>640</y>
+      <width>1401</width>
+      <height>192</height>
      </rect>
     </property>
-    <property name="font">
-     <font>
-      <family>Arial</family>
-      <pointsize>10</pointsize>
-      <weight>75</weight>
-      <bold>true</bold>
-     </font>
-    </property>
-    <property name="title">
-     <string>Table</string>
-    </property>
-    <widget class="QLabel" name="lblHand1">
-     <property name="geometry">
-      <rect>
-       <x>150</x>
-       <y>110</y>
-       <width>91</width>
-       <height>31</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>Hand1</string>
-     </property>
-    </widget>
    </widget>
   </widget>
   <widget class="QMenuBar" name="menubar">
@@ -54,19 +30,26 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>800</width>
+     <width>1938</width>
      <height>27</height>
     </rect>
    </property>
-   <widget class="QMenu" name="menuWhatGoesHere">
+   <widget class="QMenu" name="menuQtMainWindow">
     <property name="title">
-     <string>What goes here?</string>
+     <string>TableWindow</string>
     </property>
    </widget>
-   <addaction name="menuWhatGoesHere"/>
+   <addaction name="menuQtMainWindow"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>CardPanel</class>
+   <extends>QTextBrowser</extends>
+   <header>card_panel.py</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>
