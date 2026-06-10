@@ -1,7 +1,8 @@
 # main.py
 import sys
+from typing import cast
 
-from PyQt5.QtWidgets import QApplication, QMainWindow
+from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget
 
 from card_panel import CardPanel
 from game import Game
@@ -12,27 +13,21 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
 
-        # Load UI
-        self.ui = Ui_MainWindow()
+        # Strongly typed UI object
+        self.ui: Ui_MainWindow = Ui_MainWindow()
         self.ui.setupUi(self)
 
-        print("Type:", type(self.ui.cpHand1))
-
-        # Create game controller
-        self.game: Game = Game(sequences=2)
-
-        # Start a new game immediately (or attach to a button)
-        self.start_new_game()
-
-        # Create card panel for Player 1
-        self.hand_panel = self.ui.cpHand1
+        # Cast cpHand1 to CardPanel so Pylance knows its real type
+        self.hand_panel: CardPanel = cast(CardPanel, self.ui.cpHand1)
 
         # Connect click signal
         self.hand_panel.card_clicked.connect(self.on_card_clicked)
 
-    def on_card_clicked(self, index: int):
-        card = self.game.get_card(index)
-        print(f"Clicked card index: {index}, card: {card}")
+        # Create game controller
+        self.game: Game = Game(sequences=2)
+
+        # Start a new game immediately
+        self.start_new_game()
 
     # ---------------------------------------------------------
     # GAME INTEGRATION
@@ -41,12 +36,12 @@ class MainWindow(QMainWindow):
         """Create a new game and update the GUI."""
         self.game.create_new_game()
 
-        # Example: show card indices in textQtBrowser (replace with actual card images later)
-        # self.ui.cpHand1.setText(str(self.game.hand1))
+        # Later: update card panel with actual card images
+        # self.hand_panel.update_cards(self.game.hand1)
 
-    #  self.ui.lblHand2.setText(str(self.game.hand2))
-
-    # Later: replace with card images in QLabels or QFrames
+    def on_card_clicked(self, index: int) -> None:
+        card = self.game.get_card(index)
+        print(f"Clicked card index: {index}, card: {card}")
 
 
 def main() -> None:

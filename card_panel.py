@@ -95,52 +95,85 @@ Examples:
     >>> obj.do_something()
 """
 
+from __future__ import annotations
+
+from typing import List
+
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtWidgets import QHBoxLayout, QLabel, QWidget
 
-CARD_W = 100
-CARD_H = 150
+CARD_W: int = 100
+CARD_H: int = 150
+
+import os
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CARD_DIR = os.path.join(BASE_DIR, "images", "cards")
 
 
 class CardPanel(QWidget):
-    card_clicked = pyqtSignal(int)  # index of clicked card
+    """
+    A horizontal panel of clickable card images.
+    Emits card_clicked(index) when a card is clicked.
+    """
 
-    def __init__(self, parent=None):
+    card_clicked = pyqtSignal(int)
+
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
 
-        self.cards = []  # list of card IDs (e.g., 23, 24, 22)
-        self.labels = []  # QLabel objects
+        # Internal state
+        self.cards: List[int] = []  # card IDs (e.g., 23, 24, 22)
+        self.labels: List[QLabel] = []  # QLabel widgets for each card
 
-        self.layout = QHBoxLayout()
+        # Layout
+        self.layout: QHBoxLayout = QHBoxLayout()
+        self.layout.setSpacing(8)
+        self.layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(self.layout)
 
     # ---------------------------------------------------------
     # Load card images into the panel
     # ---------------------------------------------------------
-    def set_cards(self, card_list):
-        self.clear()
-        self.cards = card_list
 
-        for index, card_id in enumerate(card_list):
-            lbl = QLabel()
-            lbl.setFixedSize(CARD_W, CARD_H)
-            lbl.setScaledContents(True)
 
-            pix = QPixmap(f"cards/{card_id}.png")
-            lbl.setPixmap(pix)
+def set_cards(self, card_list: list[int]) -> None:
+    """Replace all cards with a new list of card IDs."""
+    self.clear()
+    self.cards = card_list
 
-            lbl.mousePressEvent = lambda e, i=index: self.card_clicked.emit(i)
+    for index, card_id in enumerate(card_list):
+        card = self.parent().game.get_card(card_id)  # get Card object
 
-            self.labels.append(lbl)
-            self.layout.addWidget(lbl)
+        suit = card.suit.lower()  # clubs, hearts, etc.
+        rank = card.rank  # A, 10, K, Q, J, 9
+
+        filename = f"{suit}_{rank}.png"
+
+        full_path = os.path.join(CARD_DIR, filename)
+        print("Loading:", full_path)  # DEBUG
+
+        lbl = QLabel(self)
+        lbl.setFixedSize(CARD_W, CARD_H)
+        lbl.setScaledContents(True)
+
+        pix = QPixmap(full_path)
+        lbl.setPixmap(pix)
+
+        lbl.mousePressEvent = lambda e, i=index: self.card_clicked.emit(i)
+
+        self.labels.append(lbl)
+        self.layout.addWidget(lbl)
 
     # ---------------------------------------------------------
     # Remove all cards
     # ---------------------------------------------------------
-    def clear(self):
+    def clear(self) -> None:
+        """Remove all card widgets from the panel."""
         for lbl in self.labels:
             self.layout.removeWidget(lbl)
             lbl.deleteLater()
+
         self.labels = []
         self.cards = []
