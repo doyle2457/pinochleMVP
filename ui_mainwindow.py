@@ -10,8 +10,6 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from card_panel import CardPanel
-
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
@@ -41,3 +39,6 @@ class Ui_MainWindow(object):
         _translate = QtCore.QCoreApplication.translate
         MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
         self.menuQtMainWindow.setTitle(_translate("MainWindow", "TableWindow"))
+
+
+from card_panel import CardPanel
