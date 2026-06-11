@@ -1,25 +1,13 @@
-# card.py
-from typing import Optional
+from __future__ import annotations
+
+from dataclasses import dataclass
 
 
+@dataclass(frozen=True)
 class Card:
-    """
-    Simple data container for a Pinochle card.
-    """
+    suit: str  # "S", "H", "D", "C"
+    rank: str  # "A", "10", "K", "Q", "J", "9"
 
-    def __init__(
-        self,
-        suit: str,
-        rank: str,
-        filename: str,
-        copy: int = 1,
-        index: Optional[int] = None,
-    ):
-        self.suit = suit
-        self.rank = rank
-        self.filename = filename
-        self.copy = copy  # 1..N (sequence number)
-        self.index = index  # global deck index
-
-    def __repr__(self):
-        return f"{self.rank} of {self.suit} (copy {self.copy})"
+    @property
+    def image_name(self) -> str:
+        return f"{self.rank}{self.suit}.png"
