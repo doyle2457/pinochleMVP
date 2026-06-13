@@ -38,7 +38,8 @@ class MainWindow(QMainWindow):
 
         # Later: update card panel with actual card images
         # self.hand_panel.update_cards(self.game.hand1)
-          self.hand_panel.set_cards()
+        # self.hand_panel.set_cards(
+        print("need to implement card panel update with game hand1")
 
     def on_card_clicked(self, index: int) -> None:
         card = self.game.get_card(index)

@@ -59,7 +59,7 @@ class Game:
 
         # Remove dealt cards from deck.indices
         del self.deck.indices[:24]
-        print_hands()
+        self.print_hands()
 
     #   self.print_hands() looked good at this point,
     #   but we'll call it from the UI later when we have card images to show.
