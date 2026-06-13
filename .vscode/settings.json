@@ -1,5 +1,7 @@
 {
-    "python.defaultInterpreterPath": "D:\\Python314\\python.exe",
+    "python.defaultInterpreterPath": ".venv/Scripts/python.exe",
+    "python.terminal.activateEnvironment": true,
+    "python.terminal.activateEnvInCurrentTerminal": true,
     "editor.fontSize": 10,
     "terminal.integrated.fontSize": 10,
     "[python]": {
@@ -13,5 +15,17 @@
         "--profile",
         "black"
     ],
-    "python-envs.defaultEnvManager": "ms-python.python:system"
+    "python-envs.defaultEnvManager": "ms-python.python:system",
+    "terminal.integrated.defaultProfile.windows": "Pinochle Dev",
+    "terminal.integrated.profiles.windows": {
+        "Pinochle Dev": {
+            "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+            "args": [
+                "-NoExit",
+                "-Command",
+                "Set-Location -LiteralPath '${workspaceFolder}'; .\\.venv\\Scripts\\Activate.ps1"
+            ],
+            "icon": "terminal-powershell"
+        }
+    }
 }

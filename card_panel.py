@@ -150,7 +150,7 @@ def set_cards(self, card_list: list[int]) -> None:
         rank = card.rank  # A, 10, K, Q, J, 9
 
         filename = f"{suit}_{rank}.png"
-
+        print("filename in set cards", filename)# DEBUG
         full_path = os.path.join(CARD_DIR, filename)
         print("Loading:", full_path)  # DEBUG
 

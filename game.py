@@ -40,7 +40,7 @@ class Game:
     # ---------------------------------------------------------
     # CREATE NEW GAME
     # ---------------------------------------------------------
-    def create_new_game(self) -> None:
+    def create_new_game(self) -> tuple[List[int], List[int]]:
         """
         Create a new game:
             - Build the deck dictionary
@@ -59,6 +59,12 @@ class Game:
 
         # Remove dealt cards from deck.indices
         del self.deck.indices[:24]
+        self.print_hands()
+
+        return self.hand1, self.hand2
+
+    #   self.print_hands() looked good at this point,
+    #   but we'll call it from the UI later when we have card images to show.
 
     # ---------------------------------------------------------
     # DEBUG / INSPECTION HELPERS
@@ -67,7 +73,7 @@ class Game:
         """Print both hands with card details."""
         print("\nPlayer 1 Hand:")
         for idx in self.hand1:
-            print(f"  {idx}: {self.deck.cards[idx]}")
+            print(f"  {idx}: {self.deck.cards[idx].suit} {self.deck.cards[idx].rank}")
 
         print("\nPlayer 2 Hand:")
         for idx in self.hand2:

@@ -20,7 +20,7 @@ class Deck:
     Cards of identical suit+rank are kept adjacent.
     """
 
-    def __init__(self, image_dir: str = "images/cards", sequences: int = 2):
+    def __init__(self, image_dir: str = "images\\cards", sequences: int = 2):
         self.image_dir = image_dir
         self.sequences = max(1, int(sequences))  # 1, 2, or 4
         self.cards: dict[int, Card] = {}  # index → Card
