@@ -1,12 +1,10 @@
 # deck.py
-import os
+from __future__ import annotations
+
 import random
-from typing import Dict, List
+from typing import List
 
 from card import Card
-
-SUITS = ["hearts", "spades", "diamonds", "clubs"]
-RANKS = ["A", "10", "K", "Q", "J", "9"]
 
 
 class Deck:

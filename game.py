@@ -3,6 +3,9 @@ from __future__ import annotations
 
 from typing import List
 
+from PyQt5.QtCore import QObject, pyqtSignal
+
+from card import Card
 from deck import Deck
 
 
