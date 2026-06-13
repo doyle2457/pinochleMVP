@@ -1,9 +1,7 @@
-from __future__ import annotations
+# card.py
+from typing import Optional
 
-from dataclasses import dataclass
 
-
-@dataclass(frozen=True)
 class Card:
     """
     Simple data container for a Pinochle card.

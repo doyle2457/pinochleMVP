@@ -3,9 +3,6 @@ from __future__ import annotations
 
 from typing import List
 
-from PyQt5.QtCore import QObject, pyqtSignal
-
-from card import Card
 from deck import Deck
 
 
@@ -43,7 +40,7 @@ class Game:
     # ---------------------------------------------------------
     # CREATE NEW GAME
     # ---------------------------------------------------------
-    def create_new_game(self) -> tuple[List[int], List[int]]:
+    def create_new_game(self) -> None:
         """
         Create a new game:
             - Build the deck dictionary
@@ -62,9 +59,7 @@ class Game:
 
         # Remove dealt cards from deck.indices
         del self.deck.indices[:24]
-        self.print_hands()
-
-        return self.hand1, self.hand2
+        print_hands()
 
     #   self.print_hands() looked good at this point,
     #   but we'll call it from the UI later when we have card images to show.
