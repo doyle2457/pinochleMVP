@@ -20,7 +20,8 @@ class Card:
         self.filename = filename
         self.copy = copy  # 1..N (sequence number)
         self.index = index  # global deck index
-        print(f"Card __init__, self.copy = {self.copy}, self.index = {self.index}")
+
+    #   print(f"Card __init__, self.copy = {self.copy}, self.index = {self.index}")
 
     def __repr__(self):
         return f"{self.rank} of {self.suit} (copy {self.copy})"
