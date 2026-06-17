@@ -95,82 +95,60 @@ Examples:
     >>> obj.do_something()
 """
 
-from __future__ import annotations
+# card_panel.py
 
-from typing import List
-
-from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtWidgets import QHBoxLayout, QLabel, QWidget
 
-CARD_W: int = 100
-CARD_H: int = 150
-
-import os
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-CARD_DIR = os.path.join(BASE_DIR, "images", "cards")
+CARD_W = 100
+CARD_H = 150
 
 
 class CardPanel(QWidget):
-    """
-    A horizontal panel of clickable card images.
-    Emits card_clicked(index) when a card is clicked.
-    """
+    card_clicked = pyqtSignal(int)  # emits index of clicked card in the hand
 
-    card_clicked = pyqtSignal(int)
-
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, game, parent=None):
         super().__init__(parent)
 
-        # Internal state
-        self.cards: List[int] = []  # card IDs (e.g., 23, 24, 22)
-        self.labels: List[QLabel] = []  # QLabel widgets for each card
+        self.game = game  # <-- direct reference to Game object
+        self.cards = []  # list of card indices
+        self.labels = []  # QLabel widgets
 
-        # Layout
-        self.layout: QHBoxLayout = QHBoxLayout()
+        self.layout = QHBoxLayout()
         self.layout.setSpacing(8)
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(self.layout)
 
     # ---------------------------------------------------------
-    # Load card images into the panel
+    # Load card images into the panel using card indices
     # ---------------------------------------------------------
+    def set_cards(self, card_index_list):
+        """card_index_list contains indices into game.deck.cards."""
+        self.clear()
+        self.cards = card_index_list
 
+        deck_cards = self.game.deck.cards  # list of Card objects
 
-def set_cards(self, card_list: list[int]) -> None:
-    """Replace all cards with a new list of card IDs."""
-    self.clear()
-    self.cards = card_list
+        for hand_pos, card_index in enumerate(card_index_list):
+            card = deck_cards[card_index]  # lookup Card object
+            image_path = card.filename  # get image path from Card object
 
-    for index, card_id in enumerate(card_list):
-        card = self.parent().game.get_card(card_id)  # get Card object
+            lbl = QLabel()
+            lbl.setFixedSize(CARD_W, CARD_H)
+            lbl.setScaledContents(True)
+            lbl.setPixmap(QPixmap(image_path))
 
-        suit = card.suit.lower()  # clubs, hearts, etc.
-        rank = card.rank  # A, 10, K, Q, J, 9
+            # click handler
+            lbl.mousePressEvent = lambda e, i=hand_pos: self.card_clicked.emit(i)
 
-        filename = f"{suit}_{rank}.png"
-        print("filename in set cards", filename)  # DEBUG
-        full_path = os.path.join(CARD_DIR, filename)
-        print("Loading:", full_path)  # DEBUG
-
-        lbl = QLabel(self)
-        lbl.setFixedSize(CARD_W, CARD_H)
-        lbl.setScaledContents(True)
-
-        pix = QPixmap(full_path)
-        lbl.setPixmap(pix)
-
-        lbl.mousePressEvent = lambda e, i=index: self.card_clicked.emit(i)
-
-        self.labels.append(lbl)
-        self.layout.addWidget(lbl)
+            self.labels.append(lbl)
+            self.layout.addWidget(lbl)
 
     # ---------------------------------------------------------
     # Remove all cards
     # ---------------------------------------------------------
-    def clear(self) -> None:
-        """Remove all card widgets from the panel."""
+    def clear(self):
         for lbl in self.labels:
             self.layout.removeWidget(lbl)
             lbl.deleteLater()

@@ -40,7 +40,7 @@ class Game:
     # ---------------------------------------------------------
     # CREATE NEW GAME
     # ---------------------------------------------------------
-    def create_new_game(self) -> None:
+    def create_new_game(self) -> tuple[List[int], List[int]]:
         """
         Create a new game:
             - Build the deck dictionary
@@ -60,6 +60,8 @@ class Game:
         # Remove dealt cards from deck.indices
         del self.deck.indices[:24]
         self.print_hands()
+
+        return self.hand1, self.hand2
 
     #   self.print_hands() looked good at this point,
     #   but we'll call it from the UI later when we have card images to show.

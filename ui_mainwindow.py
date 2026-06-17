@@ -20,6 +20,10 @@ class Ui_MainWindow(object):
         self.cpHand1 = CardPanel(self.centralwidget)
         self.cpHand1.setGeometry(QtCore.QRect(300, 640, 1401, 192))
         self.cpHand1.setObjectName("cpHand1")
+        # add cpHand2 for opponent's hand (optional) without regegenerating the UI file
+        self.cpHand2 = CardPanel(self.centralwidget)
+        self.cpHand2.setGeometry(QtCore.QRect(300, 400, 1401, 192))
+        self.cpHand2.setObjectName("cpHand2")
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
         self.menubar.setGeometry(QtCore.QRect(0, 0, 1938, 27))
