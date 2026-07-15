@@ -2,54 +2,16 @@
 <ui version="4.0">
  <class>MainWindow</class>
  <widget class="QMainWindow" name="MainWindow">
-  <property name="geometry">
-   <rect>
-    <x>0</x>
-    <y>0</y>
-    <width>1938</width>
-    <height>1033</height>
-   </rect>
-  </property>
-  <property name="windowTitle">
-   <string>MainWindow</string>
-  </property>
-  <widget class="QWidget" name="centralwidget">
-   <widget class="CardPanel" name="cpHand1">
-    <property name="geometry">
-     <rect>
-      <x>300</x>
-      <y>640</y>
-      <width>1401</width>
-      <height>192</height>
-     </rect>
-    </property>
-   </widget>
-  </widget>
+  <property name="geometry"><rect><x>0</x><y>0</y><width>1920</width><height>984</height></rect></property>
+  <property name="windowTitle"><string>Two-Player Pinochle</string></property>
+  <widget class="QWidget" name="centralwidget"/>
   <widget class="QMenuBar" name="menubar">
-   <property name="geometry">
-    <rect>
-     <x>0</x>
-     <y>0</y>
-     <width>1938</width>
-     <height>27</height>
-    </rect>
-   </property>
-   <widget class="QMenu" name="menuQtMainWindow">
-    <property name="title">
-     <string>TableWindow</string>
-    </property>
-   </widget>
+   <property name="geometry"><rect><x>0</x><y>0</y><width>1920</width><height>27</height></rect></property>
+   <widget class="QMenu" name="menuQtMainWindow"><property name="title"><string>Table</string></property></widget>
    <addaction name="menuQtMainWindow"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
  </widget>
- <customwidgets>
-  <customwidget>
-   <class>CardPanel</class>
-   <extends>QTextBrowser</extends>
-   <header>card_panel.py</header>
-  </customwidget>
- </customwidgets>
  <resources/>
  <connections/>
 </ui>

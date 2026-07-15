@@ -14,19 +14,12 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(1938, 1033)
+        MainWindow.resize(1920, 984)
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
-        self.cpHand1 = CardPanel(self.centralwidget)
-        self.cpHand1.setGeometry(QtCore.QRect(300, 640, 1401, 192))
-        self.cpHand1.setObjectName("cpHand1")
-        # add cpHand2 for opponent's hand (optional) without regegenerating the UI file
-        self.cpHand2 = CardPanel(self.centralwidget)
-        self.cpHand2.setGeometry(QtCore.QRect(300, 400, 1401, 192))
-        self.cpHand2.setObjectName("cpHand2")
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 1938, 27))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 1920, 27))
         self.menubar.setObjectName("menubar")
         self.menuQtMainWindow = QtWidgets.QMenu(self.menubar)
         self.menuQtMainWindow.setObjectName("menuQtMainWindow")
@@ -41,8 +34,5 @@ class Ui_MainWindow(object):
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
-        self.menuQtMainWindow.setTitle(_translate("MainWindow", "TableWindow"))
-
-
-from card_panel import CardPanel
+        MainWindow.setWindowTitle(_translate("MainWindow", "Two-Player Pinochle"))
+        self.menuQtMainWindow.setTitle(_translate("MainWindow", "Table"))
