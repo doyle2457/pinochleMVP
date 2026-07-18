@@ -7,10 +7,33 @@
   <widget class="QWidget" name="centralwidget"/>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry"><rect><x>0</x><y>0</y><width>1920</width><height>27</height></rect></property>
-   <widget class="QMenu" name="menuQtMainWindow"><property name="title"><string>Table</string></property></widget>
+   <property name="nativeMenuBar"><bool>false</bool></property>
+   <widget class="QMenu" name="menuQtMainWindow">
+    <property name="title"><string>Game</string></property>
+    <addaction name="actionNewGame"/>
+    <addaction name="actionResumeSavedGame"/>
+    <addaction name="actionSaveGameState"/>
+    <addaction name="separator"/>
+    <addaction name="actionManageSavedGames"/>
+   </widget>
    <addaction name="menuQtMainWindow"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
+  <action name="actionNewGame">
+   <property name="text"><string>New Game</string></property>
+   <property name="shortcut"><string>Ctrl+N</string></property>
+  </action>
+  <action name="actionResumeSavedGame">
+   <property name="text"><string>Resume Saved Game...</string></property>
+   <property name="shortcut"><string>Ctrl+O</string></property>
+  </action>
+  <action name="actionSaveGameState">
+   <property name="text"><string>Save Game State...</string></property>
+   <property name="shortcut"><string>Ctrl+S</string></property>
+  </action>
+  <action name="actionManageSavedGames">
+   <property name="text"><string>Manage Saved Games...</string></property>
+  </action>
  </widget>
  <resources/>
  <connections/>
