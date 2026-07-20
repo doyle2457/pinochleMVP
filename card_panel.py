@@ -6,6 +6,8 @@ from PyQt5.QtCore import QMimeData, Qt, pyqtSignal
 from PyQt5.QtGui import QDrag, QPixmap
 from PyQt5.QtWidgets import QHBoxLayout, QLabel, QSizePolicy, QWidget
 
+from display_themes import DEFAULT_THEME, THEMES
+from game import Player
 from selectable_label import SelectableLabel
 
 CARD_W = 100
@@ -33,20 +35,27 @@ class CardPanel(QWidget):
         self._source_pixmaps = []
         self._badges = []
         self._drop_hint = None
+        self._theme = THEMES[DEFAULT_THEME]
         self.selection_peers = []
         self.layout = QHBoxLayout(self)
         self.layout.setSpacing(8)
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.layout.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         self.setAcceptDrops(True)
+        # Use one card-derived height for every table panel.  Letting the
+        # vertical layouts distribute surplus pixels independently can make
+        # otherwise identical rows differ by a pixel at some window sizes.
+        self.setFixedHeight(CARD_H + 16)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         if panel_name.startswith(("trick", "meld")):
             area_name = "TRICK" if panel_name.startswith("trick") else "MELD"
             player_number = panel_name[-1]
-            self.setMinimumSize(CARD_W + 16, CARD_H + 16)
-            self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+            self.setMinimumWidth(CARD_W + 16)
             card_word = "CARD" if area_name == "TRICK" else "SELECTED CARDS"
             self._drop_hint = QLabel(
-                f"PLAYER {player_number} {area_name}\nDROP {card_word} HERE", self
+                f"{Player(int(player_number)).display_name.upper()} {area_name}\n"
+                f"DROP {card_word} HERE",
+                self,
             )
             self._drop_hint.setAlignment(Qt.AlignCenter)
             self._drop_hint.setAttribute(Qt.WA_TransparentForMouseEvents)
@@ -57,13 +66,35 @@ class CardPanel(QWidget):
         """Make play-area panels visible and highlight them during a drag."""
         if self._drop_hint is None:
             return
-        color = "#ffd54f" if active else "#9e9e9e"
-        background = "rgba(255, 213, 79, 45)" if active else "rgba(255, 255, 255, 18)"
+        color = self._theme["active_target"] if active else self._theme["muted"]
+        background = (
+            self._theme["target_background"]
+            if active
+            else self._theme["idle_target_background"]
+        )
         self.setStyleSheet(
             f"CardPanel {{ border: 3px dashed {color}; border-radius: 8px; "
             f"background-color: {background}; }}"
         )
         self._drop_hint.setStyleSheet(f"color: {color}; font-weight: bold;")
+
+    def set_theme(self, theme):
+        """Refresh this panel's themed drop-target treatment."""
+        self._theme = theme
+        self._set_drop_target_style(False)
+        for badge in self._badges:
+            self._style_badge(badge)
+
+    def _style_badge(self, badge):
+        """Keep pile counters legible and consistent in every theme."""
+        badge.setStyleSheet(
+            f"background: {self._theme['badge_background']}; "
+            f"color: {self._theme['badge_text']}; "
+            f"border: 1px solid {self._theme['border']}; "
+            "border-radius: 8px; padding: 2px 6px; "
+            "font-size: 15pt; font-weight: bold;"
+        )
+        badge.adjustSize()
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -115,10 +146,9 @@ class CardPanel(QWidget):
         self._source_pixmaps.append(source)
         if badge is not None:
             badge_label = QLabel(str(badge), holder)
-            badge_label.setStyleSheet("background: white; border: 1px solid black; border-radius: 7px; padding: 1px 4px;")
             badge_label.move(4, 4)
-            badge_label.adjustSize()
             self._badges.append(badge_label)
+            self._style_badge(badge_label)
         self.layout.addWidget(holder)
 
     def _start_drag(self, label):

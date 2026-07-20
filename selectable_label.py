@@ -1,5 +1,9 @@
+from weakref import WeakSet
+
 from PyQt5.QtCore import QPoint, Qt, pyqtSignal
 from PyQt5.QtWidgets import QLabel
+
+from display_themes import DEFAULT_THEME, THEMES
 
 
 class SelectableLabel(QLabel):
@@ -7,6 +11,8 @@ class SelectableLabel(QLabel):
 
     clicked = pyqtSignal(bool)
     drag_requested = pyqtSignal()
+    _instances = WeakSet()
+    _colors = THEMES[DEFAULT_THEME]
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -15,7 +21,15 @@ class SelectableLabel(QLabel):
         self._newly_drawn = False
         self._press_position = QPoint()
         self._drag_started = False
+        self._instances.add(self)
         self._update_style()
+
+    @classmethod
+    def set_theme(cls, theme):
+        """Apply action-border colors to existing and future cards."""
+        cls._colors = theme
+        for instance in tuple(cls._instances):
+            instance._update_style()
 
     @property
     def selected(self):
@@ -36,7 +50,13 @@ class SelectableLabel(QLabel):
         self._update_style()
 
     def _update_style(self):
-        color = "red" if self._selected else "green" if self._newly_drawn else "black"
+        color = (
+            self._colors["selected"]
+            if self._selected
+            else self._colors["newly_drawn"]
+            if self._newly_drawn
+            else self._colors["card_border"]
+        )
         self.setStyleSheet(f"border: 3px solid {color}; border-radius: 5px;")
 
     def mousePressEvent(self, event):
