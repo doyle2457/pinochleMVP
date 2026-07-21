@@ -19,6 +19,30 @@ near melds from the cards that have already been exposed.
 - Saved games
 - Responsive layouts for Windows and Linux displays
 
+## How Codex and GPT-5.6 were used
+
+Codex and GPT-5.6 helped transform an existing experimental PyQt5 interface
+into a complete, playable two-player Pinochle game during OpenAI Build Week.
+
+They were used to:
+
+- Expand and correct the two-player Pinochle rules engine
+- Implement drag-and-drop card play and visible drop targets
+- Add meld recognition, scoring, and Dix exchanges
+- Develop contextual hints for leading, waiting, responding, and melding
+- Analyze current melds and near melds using exposed-card information
+- Implement saved games
+- Add light and dark display themes
+- Make the interface responsive on Windows and Linux
+- Diagnose layout and cross-platform packaging problems
+- Create and run automated tests for rules and edge cases
+- Clean, document, package, and publish the project
+
+Codex did more than generate isolated code. It helped revise the architecture,
+reason about complicated game states, test changes iteratively, and refine the
+interface from observations made while playing the game. The final release
+passes 33 automated tests.
+
 ## Requirements
 
 - Python 3.10 or newer
