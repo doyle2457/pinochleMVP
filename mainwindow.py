@@ -7,7 +7,13 @@ from PyQt5.QtWidgets import (
     QToolButton, QVBoxLayout,
 )
 
-from card_panel import CARD_W, CardPanel
+from card_panel import (
+    CARD_H,
+    CARD_W,
+    PANEL_PADDING,
+    TRICK_TARGET_MIN_WIDTH,
+    CardPanel,
+)
 from display_themes import DEFAULT_THEME, THEMES
 from game import Game, Player, TurnStage
 from saved_games import SavedGameStore
@@ -38,7 +44,7 @@ class MainWindow(QMainWindow):
         self.cpStock = CardPanel(self.game, self, "stock")
         self.cpTrump = CardPanel(self.game, self, "trump")
         self.action_message = ""
-        self.hint_score_events = []
+        self.hint_score_events = {Player.ONE: [], Player.TWO: []}
         self.newly_drawn = {Player.ONE: set(), Player.TWO: set()}
         # A meld may combine selected cards from the player's hand and cards
         # already displayed in that player's meld area.
@@ -124,6 +130,7 @@ class MainWindow(QMainWindow):
             panel.cards_dropped.connect(lambda source, cards, name=target: self.on_cards_dropped(name, source, cards))
         self._setup_game_menu()
         self.start_new_game()
+        QTimer.singleShot(0, self._resize_card_panels)
 
     def _setup_game_menu(self):
         """Connect menu actions declared in the Qt Designer UI."""
@@ -144,8 +151,10 @@ class MainWindow(QMainWindow):
         # to the button can make its first action paint beneath the button on
         # some platforms before the menu has actually been requested.
         self.ui.menuQtMainWindow.hide()
+        self.ui.menuQtMainWindow.setFont(self.table_label_font)
         self.game_menu_button.clicked.connect(self._show_game_menu)
         self.theme_menu = self.ui.menuQtMainWindow.addMenu("Themes")
+        self.theme_menu.setFont(self.table_label_font)
         self.theme_action_group = QActionGroup(self)
         self.theme_action_group.setExclusive(True)
         self.theme_actions = {}
@@ -197,14 +206,68 @@ class MainWindow(QMainWindow):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         if hasattr(self, "row_trick") and hasattr(self, "game_menu_button"):
+            QTimer.singleShot(0, self._resize_card_panels)
             QTimer.singleShot(0, self._align_game_menu_to_hand_slot)
+
+    def _resize_card_panels(self):
+        """Scale every card row to the available table height.
+
+        Five card rows share roughly three quarters of the central widget;
+        the remaining space belongs to hints, scores, margins, and the status
+        bar. The upper bound avoids comically large cards on external monitors.
+        """
+        if not hasattr(self, "cpHand1"):
+            return
+        available_height = max(1, self.ui.centralwidget.height())
+        margins = self.main_layout.contentsMargins()
+        spacing = self.main_layout.spacing()
+
+        def label_height(label):
+            wrapped_height = label.heightForWidth(max(1, label.width()))
+            return max(label.sizeHint().height(), wrapped_height if wrapped_height > 0 else 0)
+
+        reserved_height = (
+            margins.top()
+            + margins.bottom()
+            + spacing * max(0, self.main_layout.count() - 1)
+            + self.score_pad.sizeHint().height()
+            + label_height(self.hint1)
+            + label_height(self.hint2)
+        )
+        vertical_card_height = max(
+            48,
+            min(320, (available_height - reserved_height) // 5 - PANEL_PADDING),
+        )
+        hand_fit_heights = []
+        for hand in (self.cpHand1, self.cpHand2):
+            spacing = hand.layout.spacing()
+            available_width = max(1, hand.width() - spacing * 11)
+            fitted_width = max(1, available_width // 12)
+            hand_fit_heights.append(round(fitted_width * CARD_H / CARD_W))
+        card_height = min(vertical_card_height, *hand_fit_heights)
+        card_width = round(card_height * CARD_W / CARD_H)
+        panels = (
+            self.cpHand1, self.cpMeld1, self.cpWon1, self.cpTrick1,
+            self.cpHand2, self.cpMeld2, self.cpWon2, self.cpTrick2,
+            self.cpStock, self.cpTrump,
+        )
+        for panel in panels:
+            panel.set_card_height(card_height)
+        for panel in (
+            self.cpWon1, self.cpWon2, self.cpStock, self.cpTrump,
+        ):
+            panel.setMinimumWidth(card_width + 6)
+        for panel in (self.cpTrick1, self.cpTrick2):
+            panel.setMinimumWidth(max(card_width + 6, TRICK_TARGET_MIN_WIDTH))
+        QTimer.singleShot(0, self._align_game_menu_to_hand_slot)
 
     def _align_game_menu_to_hand_slot(self):
         """Place the menu anchor at the right edge of hand-card slot 12."""
         slot_count = 12
         spacing = self.cpHand1.layout.spacing()
         available_width = max(1, self.cpHand1.width() - spacing * (slot_count - 1))
-        card_width = min(CARD_W, max(1, available_width // slot_count))
+        preferred_width = round(self.cpHand1._preferred_card_height * CARD_W / CARD_H)
+        card_width = min(preferred_width, max(1, available_width // slot_count))
         slot_right = (
             self.cpHand1.geometry().left()
             + card_width * slot_count
@@ -271,7 +334,7 @@ class MainWindow(QMainWindow):
             ):
                 panel.game = self.game
             self.newly_drawn = {Player.ONE: set(), Player.TWO: set()}
-            self.hint_score_events = []
+            self.hint_score_events = {Player.ONE: [], Player.TWO: []}
             self.action_message = f'Resumed "{name}".'
             self.statusBar().showMessage(self.action_message)
             self.refresh_ui()
@@ -321,7 +384,7 @@ class MainWindow(QMainWindow):
     def start_new_game(self):
         self.game.create_new_game()
         self.newly_drawn = {Player.ONE: set(), Player.TWO: set()}
-        self.hint_score_events = []
+        self.hint_score_events = {Player.ONE: [], Player.TWO: []}
         self.action_message = "New game started."
         self.statusBar().showMessage(self.action_message)
         self.refresh_ui()
@@ -400,7 +463,7 @@ class MainWindow(QMainWindow):
                     for near_meld in near_melds
                 )
                 options.append(f"Near melds: {descriptions}.")
-        return " ".join((guidance, *options, *self.hint_score_events))
+        return " ".join((guidance, *options, *self.hint_score_events[player]))
 
     def on_cards_dropped(self, target, source, card_ids):
         source_player = {"hand1": Player.ONE, "meld1": Player.ONE, "hand2": Player.TWO, "meld2": Player.TWO}.get(source)
@@ -443,26 +506,19 @@ class MainWindow(QMainWindow):
             points = self.game.round_meld_scores[source_player] - scores_before[source_player]
             if points:
                 reason = "Dix swap" if target == "trump" else "meld"
-                self.hint_score_events.append(
+                self.hint_score_events[source_player].append(
                     f"{source_player.display_name} scored {points} points from a {reason}."
                 )
             if target.startswith("trick") and not self.game.trick:
-                self.hint_score_events = []
+                self.hint_score_events = {Player.ONE: [], Player.TWO: []}
         self.statusBar().showMessage(self.action_message)
         self.refresh_ui()
 
     def on_card_clicked_hand1(self, card_index, hand_position):
         self.newly_drawn[Player.ONE].discard(card_index)
-        print(f"Card clicked in Player 1's hand: deck_id={card_index}, position={hand_position}")
-        card = self.game.deck.cards[card_index]
-        print(f"Clicked card: {card}, filename={card.filename}")
 
     def on_card_clicked_hand2(self, card_index, hand_position):
         self.newly_drawn[Player.TWO].discard(card_index)
-        print(f"Card clicked in Player 2's hand: deck_id={card_index}, position={hand_position}")
-        print(f"Card selected: {self.cpHand2.labels[hand_position].selected}")
-        card = self.game.deck.cards[card_index]
-        print(f"Clicked card: {card}, filename={card.filename}")
 
     def on_last_draw_card_clicked(self, card_index, hand_position):
         """Give the final trick winner their chosen stock/trump card."""

@@ -4,6 +4,21 @@ Trickwise Pinochle is a two-player desktop Pinochle game with drag-and-drop
 play, light and dark themes, scoring, saved games, and contextual hints for
 turn actions, current melds, and near melds.
 
+Created for OpenAI Build Week, the project explores how an interactive card
+game can explain the state of play without interrupting it. The hint system
+changes as cards move through a turn, identifies available melds, and evaluates
+near melds from the cards that have already been exposed.
+
+## Highlights
+
+- Two-player Pinochle with legal-play enforcement and scoring
+- Drag-and-drop play with enlarged action borders and drop indicators
+- Turn-aware guidance for leading, responding, waiting, melding, and Dix swaps
+- Current-meld and near-meld analysis
+- Light and dark display themes
+- Saved games
+- Responsive layouts for Windows and Linux displays
+
 ## Requirements
 
 - Python 3.10 or newer
@@ -53,3 +68,13 @@ python -m pytest
 
 The game can also be launched from the checkout with `python main.py` after
 installing its dependencies.
+
+## Project information
+
+- Repository: <https://github.com/doyle2457/pinochleMVP>
+- Creator: Doyle C. Dikes (`doyle2457`)
+- Hackathon: OpenAI Build Week
+
+This repository currently has no open-source license. Its source is public for
+demonstration and evaluation, but no permission to copy, modify, or distribute
+it is granted unless a license is added later.

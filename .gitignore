@@ -8,5 +8,7 @@ build/
 dist/
 *.egg-info/
 .idea/
+.vscode/
+video_assets/
 *.swp
 *~

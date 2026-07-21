@@ -3,7 +3,7 @@
 import json
 
 from PyQt5.QtCore import QMimeData, Qt, pyqtSignal
-from PyQt5.QtGui import QDrag, QPixmap
+from PyQt5.QtGui import QColor, QDrag, QPainter, QPen, QPixmap
 from PyQt5.QtWidgets import QHBoxLayout, QLabel, QSizePolicy, QWidget
 
 from display_themes import DEFAULT_THEME, THEMES
@@ -13,6 +13,8 @@ from selectable_label import SelectableLabel
 CARD_W = 100
 CARD_H = 142
 RAISE_PIXELS = 8
+PANEL_PADDING = 16
+TRICK_TARGET_MIN_WIDTH = 260
 
 
 class CardPanel(QWidget):
@@ -36,6 +38,7 @@ class CardPanel(QWidget):
         self._badges = []
         self._drop_hint = None
         self._theme = THEMES[DEFAULT_THEME]
+        self._preferred_card_height = CARD_H
         self.selection_peers = []
         self.layout = QHBoxLayout(self)
         self.layout.setSpacing(8)
@@ -45,12 +48,16 @@ class CardPanel(QWidget):
         # Use one card-derived height for every table panel.  Letting the
         # vertical layouts distribute surplus pixels independently can make
         # otherwise identical rows differ by a pixel at some window sizes.
-        self.setFixedHeight(CARD_H + 16)
+        self.setFixedHeight(CARD_H + PANEL_PADDING)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         if panel_name.startswith(("trick", "meld")):
             area_name = "TRICK" if panel_name.startswith("trick") else "MELD"
             player_number = panel_name[-1]
-            self.setMinimumWidth(CARD_W + 16)
+            self.setMinimumWidth(
+                TRICK_TARGET_MIN_WIDTH
+                if panel_name.startswith("trick")
+                else CARD_W + 16
+            )
             card_word = "CARD" if area_name == "TRICK" else "SELECTED CARDS"
             self._drop_hint = QLabel(
                 f"{Player(int(player_number)).display_name.upper()} {area_name}\n"
@@ -100,16 +107,33 @@ class CardPanel(QWidget):
         super().resizeEvent(event)
         self._resize_cards()
 
+    def set_card_height(self, height):
+        """Set a shared responsive card height for this table row."""
+        height = max(1, int(height))
+        if height == self._preferred_card_height:
+            return
+        self._preferred_card_height = height
+        self.setFixedHeight(height + PANEL_PADDING)
+        self._resize_cards()
+
     def _card_size(self):
         count = len(self.labels)
         if not count:
             return CARD_W, CARD_H
-        card_h = min(CARD_H, max(1, self.height() - RAISE_PIXELS))
+        card_h = min(
+            self._preferred_card_height,
+            max(1, self.height() - RAISE_PIXELS),
+        )
         card_w = round(card_h * CARD_W / CARD_H)
-        available_width = max(1, self.width() - self.layout.spacing() * (count - 1))
-        if card_w * count > available_width:
-            card_w = max(1, available_width // count)
-            card_h = max(1, round(card_w * CARD_H / CARD_W))
+        # Multi-card rows must fit all cards across the panel. Single-card
+        # piles and trick targets use the common table size chosen from the
+        # hand geometry; shrinking those independently made them look shorter
+        # on high-DPI Linux layouts while the hand remained correctly sized.
+        if self.panel_name.startswith(("hand", "meld")):
+            available_width = max(1, self.width() - self.layout.spacing() * (count - 1))
+            if card_w * count > available_width:
+                card_w = max(1, available_width // count)
+                card_h = max(1, round(card_w * CARD_H / CARD_W))
         return card_w, card_h
 
     def _resize_cards(self):
@@ -168,7 +192,25 @@ class CardPanel(QWidget):
         drag = QDrag(label)
         drag.setMimeData(mime)
         drag.setPixmap(label.pixmap())
+        drag.setDragCursor(self._valid_drop_cursor(), Qt.MoveAction)
         drag.exec_(Qt.MoveAction)
+
+    @staticmethod
+    def _valid_drop_cursor():
+        """Return a large, high-contrast valid-drop indicator."""
+        size = 48
+        cursor = QPixmap(size, size)
+        cursor.fill(Qt.transparent)
+        painter = QPainter(cursor)
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setPen(QPen(QColor("#0b5d1e"), 3))
+        painter.setBrush(QColor("#22c55e"))
+        painter.drawEllipse(3, 3, size - 6, size - 6)
+        painter.setPen(QPen(QColor("white"), 6, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+        painter.drawLine(13, 25, 21, 33)
+        painter.drawLine(21, 33, 36, 16)
+        painter.end()
+        return cursor
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasFormat("application/x-pinochle-cards"):

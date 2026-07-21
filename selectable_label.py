@@ -5,6 +5,11 @@ from PyQt5.QtWidgets import QLabel
 
 from display_themes import DEFAULT_THEME, THEMES
 
+NORMAL_BORDER_WIDTH = 3
+ACTION_BORDER_WIDTH = 10
+NORMAL_BORDER_RADIUS = 5
+ACTION_BORDER_RADIUS = 14
+
 
 class SelectableLabel(QLabel):
     """A card image whose left-click toggles its selected state."""
@@ -50,14 +55,21 @@ class SelectableLabel(QLabel):
         self._update_style()
 
     def _update_style(self):
-        color = (
-            self._colors["selected"]
-            if self._selected
-            else self._colors["newly_drawn"]
-            if self._newly_drawn
-            else self._colors["card_border"]
+        if self._selected:
+            color = self._colors["selected"]
+            width = ACTION_BORDER_WIDTH
+            radius = ACTION_BORDER_RADIUS
+        elif self._newly_drawn:
+            color = self._colors["newly_drawn"]
+            width = ACTION_BORDER_WIDTH
+            radius = ACTION_BORDER_RADIUS
+        else:
+            color = self._colors["card_border"]
+            width = NORMAL_BORDER_WIDTH
+            radius = NORMAL_BORDER_RADIUS
+        self.setStyleSheet(
+            f"border: {width}px solid {color}; border-radius: {radius}px;"
         )
-        self.setStyleSheet(f"border: 3px solid {color}; border-radius: 5px;")
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
