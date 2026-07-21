@@ -1,7 +1,48 @@
 [project]
-name = "pinochlercg"
-version = "0.1.0"
-description = "Add your description here"
+name = "trickwise-pinochle"
+version = "0.1.7"
+description = "A two-player Pinochle game with contextual gameplay and meld hints."
 readme = "README.md"
-requires-python = ">=3.14"
-dependencies = []
+requires-python = ">=3.10"
+dependencies = [
+    "PyQt5>=5.15.11,<6",
+]
+
+[project.scripts]
+trickwise-pinochle = "main:main"
+
+[project.optional-dependencies]
+test = ["pytest>=8,<10"]
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = [
+    "ai",
+    "card",
+    "card_panel",
+    "deck",
+    "display_themes",
+    "game",
+    "layout_proportional",
+    "main",
+    "mainwindow",
+    "resource_paths",
+    "saved_games",
+    "selectable_label",
+    "ui_mainwindow",
+]
+
+[tool.setuptools.data-files]
+"share/trickwise-pinochle/images/cards" = ["images/cards/*.png"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.uv]
+required-environments = [
+    "sys_platform == 'win32' and platform_machine == 'AMD64'",
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+]

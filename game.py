@@ -8,8 +8,10 @@ actions, inspect the public state, and refresh its panels after a successful
 from __future__ import annotations
 
 import random
+from collections import Counter
 from dataclasses import dataclass
 from enum import Enum, IntEnum
+from itertools import combinations
 from typing import Iterable, Optional
 
 from deck import Deck
@@ -18,6 +20,11 @@ from deck import Deck
 class Player(IntEnum):
     ONE = 1
     TWO = 2
+
+    @property
+    def display_name(self) -> str:
+        """Return the player name shown by the table UI."""
+        return f"Player {self.value}"
 
     @property
     def other(self) -> "Player":
@@ -80,6 +87,20 @@ class MeldRecord:
     meld_type: MeldType
     card_ids: tuple[int, ...]
     points: int
+
+
+@dataclass(frozen=True)
+class NearMeld:
+    """A four/five-card meld that is short exactly one card."""
+
+    meld_type: MeldType
+    suit_label: str
+    missing_suit: str
+    missing_rank: str
+    exposed_copies: int
+    available_copies: int
+    probability: float
+    weighted_points: float
 
 
 class Game:
@@ -308,7 +329,9 @@ class Game:
         self.turn_stage = TurnStage.LEAD
         self._player_started.clear()
         self._meld_declared_this_turn = False
-        return ActionResult(True, message=f"Round started; Player {self.leader.value} leads.")
+        return ActionResult(
+            True, message=f"Round started; {self.leader.display_name} leads."
+        )
 
     def available_actions(self, player: Player) -> tuple[str, ...]:
         if self.phase in {RoundPhase.ROUND_COMPLETE, RoundPhase.GAME_COMPLETE}:
@@ -350,6 +373,135 @@ class Game:
             meld_type for meld_type in MeldType
             if meld_type is not MeldType.DIX and self._validate_meld(meld_type, ids)[0]
         )
+
+    def scoreable_melds(self, player: Player) -> tuple[tuple[MeldType, str], ...]:
+        """Return distinct meld types and suit labels the player can score now."""
+        if not self._can_declare_meld(player):
+            return ()
+        hand = set(self.hands[player])
+        owned = tuple(self.hands[player] + self.melds[player])
+        scored_signatures = {
+            self._meld_signature(record.meld_type, record.card_ids)
+            for record in self._active_melds
+            if record.player is player
+        } | {
+            self._meld_signature(meld_type, card_ids)
+            for meld_player, meld_type, card_ids in self.broken_melds
+            if meld_player is player
+        }
+        found = {}
+        for size in (2, 4, 5):
+            for card_ids in combinations(owned, size):
+                if not hand.intersection(card_ids):
+                    continue
+                for meld_type in self.meld_options(player, card_ids):
+                    signature = self._meld_signature(meld_type, card_ids)
+                    if signature in scored_signatures:
+                        continue
+                    suits = {self._card(card_id).suit for card_id in card_ids}
+                    if meld_type in {MeldType.PINOCHLE, MeldType.DOUBLE_PINOCHLE}:
+                        suit_label = "Diamonds/Spades"
+                    elif meld_type in {
+                        MeldType.ACES_AROUND,
+                        MeldType.KINGS_AROUND,
+                        MeldType.QUEENS_AROUND,
+                        MeldType.JACKS_AROUND,
+                    }:
+                        suit_label = "All suits"
+                    else:
+                        suit_label = next(iter(suits)).title()
+                    found.setdefault((meld_type, suit_label), card_ids)
+        return tuple(found)
+
+    def near_melds(self, player: Player) -> tuple[NearMeld, ...]:
+        """Return near melds using the requested exposed-card probability heuristic.
+
+        The heuristic is ``available copies / (2 * unknown cards)``, where
+        unknown cards are the stock plus the other player's concealed hand.
+        It is useful as a relative hint score, but it is not an exact draw
+        probability because draw order and the stock/opponent-hand split are
+        not modeled.
+        """
+        if self.phase is not RoundPhase.MELD_PHASE:
+            return ()
+        owned_faces = Counter(
+            (self._card(card_id).suit, self._card(card_id).rank)
+            for card_id in self.hands[player] + self.melds[player]
+        )
+        suits = ("hearts", "spades", "diamonds", "clubs")
+        patterns = []
+        if self.trump_suit is not None:
+            patterns.append((
+                MeldType.RUN,
+                self.trump_suit.title(),
+                Counter((self.trump_suit, rank) for rank in ("A", "10", "K", "Q", "J")),
+            ))
+        for meld_type, rank in (
+            (MeldType.ACES_AROUND, "A"),
+            (MeldType.KINGS_AROUND, "K"),
+            (MeldType.QUEENS_AROUND, "Q"),
+            (MeldType.JACKS_AROUND, "J"),
+        ):
+            patterns.append((
+                meld_type,
+                "All suits",
+                Counter((suit, rank) for suit in suits),
+            ))
+        patterns.append((
+            MeldType.DOUBLE_PINOCHLE,
+            "Diamonds/Spades",
+            Counter({("diamonds", "J"): 2, ("spades", "Q"): 2}),
+        ))
+
+        already_scored = {
+            record.meld_type
+            for record in self._active_melds
+            if record.player is player
+        } | {
+            meld_type
+            for meld_player, meld_type, _ in self.broken_melds
+            if meld_player is player
+        }
+        exposed_ids = (
+            self.won1
+            + self.won2
+            + self.melds[player.other]
+            + self.trump
+            + [card_id for _, card_id in self.trick]
+        )
+        unknown_cards = len(self.stock) + len(self.hands[player.other])
+        near = []
+        for meld_type, suit_label, requirements in patterns:
+            if meld_type in already_scored:
+                continue
+            missing = list((requirements - owned_faces).elements())
+            if len(missing) != 1:
+                continue
+            missing_suit, missing_rank = missing[0]
+            exposed_copies = sum(
+                1
+                for card_id in exposed_ids
+                if (self._card(card_id).suit, self._card(card_id).rank)
+                == (missing_suit, missing_rank)
+            )
+            known_owned_copies = owned_faces[(missing_suit, missing_rank)]
+            available_copies = max(
+                0, self.sequences - known_owned_copies - exposed_copies
+            )
+            probability = (
+                available_copies / (2 * unknown_cards) if unknown_cards else 0.0
+            )
+            near.append(NearMeld(
+                meld_type=meld_type,
+                suit_label=suit_label,
+                missing_suit=missing_suit.title(),
+                missing_rank=missing_rank,
+                exposed_copies=exposed_copies,
+                available_copies=available_copies,
+                probability=probability,
+                weighted_points=probability * MELD_POINTS[meld_type],
+            ))
+        return tuple(near)
 
     @property
     def trump_suit(self) -> Optional[str]:
@@ -467,10 +619,14 @@ class Game:
                 self.hands[winner.other].sort()
                 self.eligible_melder = winner
                 self.turn_stage = TurnStage.LEAD
-                return ActionResult(True, message=f"Player {winner.value} won and draws first.")
+                return ActionResult(
+                    True, message=f"{winner.display_name} won and draws first."
+                )
             if len(self.stock) == 1 and self._trump_card is not None:
                 self.turn_stage = TurnStage.LAST_DRAW_CHOICE
-                return ActionResult(True, message=f"Player {winner.value} chooses the final draw.")
+                return ActionResult(
+                    True, message=f"{winner.display_name} chooses the final draw."
+                )
             # Defensive fallback for a state with no face-up trump card.
             recipient = min((Player.ONE, Player.TWO), key=lambda p: len(self.hands[p]) + len(self.melds[p]))
             self.hands[recipient].append(self.stock.pop(0))
@@ -481,7 +637,9 @@ class Game:
             self._finish_round()
             return ActionResult(True, message="Round complete.")
         self.turn_stage = TurnStage.LEAD
-        return ActionResult(True, message=f"Player {winner.value} won the trick and leads.")
+        return ActionResult(
+            True, message=f"{winner.display_name} won the trick and leads."
+        )
 
     def _begin_trick_phase(self) -> None:
         for player in (Player.ONE, Player.TWO):
@@ -536,6 +694,11 @@ class Game:
             and self._trump_card is not None
             and self._is_current_player(player)
             and player not in self._player_started
+            and any(
+                self._card(card_id).rank == "9"
+                and self._card(card_id).suit == self.trump_suit
+                for card_id in self.hands[player]
+            )
         )
 
     def _can_declare_meld(self, player: Player) -> bool:

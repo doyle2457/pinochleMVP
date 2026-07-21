@@ -14,7 +14,8 @@ SUITS = {
     "hearts": ("♥", "#c51624"),
     "spades": ("♠", "#111111"),
 }
-GOTHIC = Path(r"C:\Windows\Fonts\OLDENGL.TTF")
+# Keep all typography within the DejaVu family for straightforward licensing.
+RANK_FONT = Path(r"C:\Windows\Fonts\DejaVuSans-Bold.ttf")
 SYMBOL_FONT = Path(r"C:\Windows\Fonts\DejaVuSans.ttf")
 
 
@@ -37,21 +38,21 @@ def card_face(rank: str, symbol: str, color: str) -> Image.Image:
                            radius=6 * SCALE, outline=color, width=2 * SCALE)
 
     # Corner indices are intentionally twice the original 15/12 and 13 px sizes.
-    corner_rank = font(GOTHIC, 30 if rank != "10" else 24)
+    corner_rank = font(RANK_FONT, 30 if rank != "10" else 24)
     suit_face = font(SYMBOL_FONT, 26)
-    center_face = font(GOTHIC, 48 if rank != "10" else 42)
+    center_face = font(RANK_FONT, 44 if rank != "10" else 36)
 
     centered(draw, (16, 15), rank, corner_rank, color)
     centered(draw, (16, 39), symbol, suit_face, color)
     centered(draw, (50, 71), rank, center_face, color)
 
     # Draw the opposite index on a transparent layer, then rotate it 180 degrees.
-    corner = Image.new("RGBA", (34 * SCALE, 50 * SCALE), (255, 255, 255, 0))
+    corner = Image.new("RGBA", (40 * SCALE, 50 * SCALE), (255, 255, 255, 0))
     cdraw = ImageDraw.Draw(corner)
-    centered(cdraw, (17, 13), symbol, suit_face, color)
-    centered(cdraw, (17, 37), rank, corner_rank, color)
+    centered(cdraw, (20, 13), symbol, suit_face, color)
+    centered(cdraw, (20, 37), rank, corner_rank, color)
     corner = corner.rotate(180)
-    image.paste(corner, (64 * SCALE, 90 * SCALE), corner)
+    image.paste(corner, (58 * SCALE, 90 * SCALE), corner)
     return image
 
 

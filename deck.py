@@ -1,9 +1,10 @@
 # deck.py
-import os
 import random
+from pathlib import Path
 from typing import Dict, List
 
 from card import Card
+from resource_paths import card_image_dir
 
 SUITS = ["hearts", "spades", "diamonds", "clubs"]
 RANKS = ["A", "10", "K", "Q", "J", "9"]
@@ -20,8 +21,8 @@ class Deck:
     Cards of identical suit+rank are kept adjacent.
     """
 
-    def __init__(self, image_dir: str = "images\\cards", sequences: int = 2):
-        self.image_dir = image_dir
+    def __init__(self, image_dir: str | Path | None = None, sequences: int = 2):
+        self.image_dir = Path(image_dir) if image_dir is not None else card_image_dir()
         self.sequences = max(1, int(sequences))  # 1, 2, or 4
         self.cards: dict[int, Card] = {}  # index → Card
         self.indices: List[int] = []  # list of indices 1..N
@@ -48,14 +49,14 @@ class Deck:
             for rank in RANKS:
 
                 # Build the image filename
-                filename = os.path.join(self.image_dir, f"{suit}_{rank}.png")
+                filename = self.image_dir / f"{suit}_{rank}.png"
 
                 # Add N copies of this card (adjacent)
                 for copy_num in range(self.sequences):
                     self.cards[index] = Card(
                         suit=suit,
                         rank=rank,
-                        filename=filename,
+                        filename=str(filename),
                         copy=copy_num + 1,  # 1..N
                         index=index,
                     )

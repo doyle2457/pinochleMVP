@@ -48,7 +48,7 @@ class Ui_MainWindow(object):
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("MainWindow", "Two-Player Pinochle"))
+        MainWindow.setWindowTitle(_translate("MainWindow", "Trickwise Pinochle"))
         self.menuQtMainWindow.setTitle(_translate("MainWindow", "Game"))
         self.actionNewGame.setText(_translate("MainWindow", "New Game"))
         self.actionNewGame.setShortcut(_translate("MainWindow", "Ctrl+N"))

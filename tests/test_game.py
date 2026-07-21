@@ -55,6 +55,18 @@ class GameRulesTests(unittest.TestCase):
         self.assertIn(original_trump, self.game.hands[player])
         self.assertTrue(self.game.validate_invariants())
 
+    def test_dix_action_requires_current_player_to_hold_trump_nine(self):
+        player = self.game.leader
+        dix = next(
+            card_id
+            for card_id, card in self.game.deck.cards.items()
+            if card.rank == "9" and card.suit == self.game.trump_suit
+        )
+        self.game.hands[player].clear()
+        self.assertNotIn("swap_dix", self.game.available_actions(player))
+        self.game.hands[player].append(dix)
+        self.assertIn("swap_dix", self.game.available_actions(player))
+
     def test_meld_validator_recognizes_royal_marriage(self):
         self.game.eligible_melder = self.game.leader
         trump_suit = self.game.trump_suit
@@ -68,6 +80,71 @@ class GameRulesTests(unittest.TestCase):
         result = self.game.declare_meld(Player.ONE, MeldType.ROYAL_MARRIAGE, [king, queen])
         self.assertTrue(result.success)
         self.assertEqual(40, self.game.round_meld_scores[Player.ONE])
+
+    def test_scoreable_melds_identifies_multiple_meld_names_and_suits(self):
+        def card_id(suit, rank):
+            return next(
+                card_id
+                for card_id, card in self.game.deck.cards.items()
+                if card.suit == suit and card.rank == rank
+            )
+
+        self.game._trump_card = card_id("hearts", "A")
+        self.game.hand1 = [
+            card_id("hearts", "K"),
+            card_id("hearts", "Q"),
+            card_id("diamonds", "K"),
+            card_id("diamonds", "Q"),
+            card_id("diamonds", "J"),
+            card_id("spades", "Q"),
+        ]
+        self.game.meld1 = []
+        self.game.leader = Player.ONE
+        self.game.responder = Player.TWO
+        self.game.eligible_melder = Player.ONE
+        self.game.turn_stage = TurnStage.LEAD
+
+        melds = set(self.game.scoreable_melds(Player.ONE))
+        self.assertIn((MeldType.ROYAL_MARRIAGE, "Hearts"), melds)
+        self.assertIn((MeldType.MARRIAGE, "Diamonds"), melds)
+        self.assertIn((MeldType.PINOCHLE, "Diamonds/Spades"), melds)
+
+    def test_near_double_pinochle_uses_exposed_copies_in_likelihood(self):
+        def face_ids(suit, rank):
+            return [
+                card_id
+                for card_id, card in self.game.deck.cards.items()
+                if card.suit == suit and card.rank == rank
+            ]
+
+        diamond_jacks = face_ids("diamonds", "J")
+        spade_queens = face_ids("spades", "Q")
+        self.game._trump_card = face_ids("hearts", "A")[0]
+        self.game.hand1 = [*diamond_jacks, spade_queens[0]]
+        self.game.meld1 = []
+        self.game.hand2 = [1, 2, 3, 4, 5]
+        self.game.stock = list(range(6, 16))
+        self.game.won1 = []
+        self.game.won2 = []
+
+        near = next(
+            meld
+            for meld in self.game.near_melds(Player.ONE)
+            if meld.meld_type is MeldType.DOUBLE_PINOCHLE
+        )
+        self.assertEqual(1, near.available_copies)
+        self.assertAlmostEqual(1 / 30, near.probability)
+        self.assertAlmostEqual(10, near.weighted_points)
+
+        self.game.won2 = [spade_queens[1]]
+        near = next(
+            meld
+            for meld in self.game.near_melds(Player.ONE)
+            if meld.meld_type is MeldType.DOUBLE_PINOCHLE
+        )
+        self.assertEqual(1, near.exposed_copies)
+        self.assertEqual(0, near.available_copies)
+        self.assertEqual(0, near.probability)
 
     def _prepare_player_one_meld(self, meld_type, meld_cards, hand_cards):
         self.game._trump_card = 37  # clubs; test melds below are non-trump

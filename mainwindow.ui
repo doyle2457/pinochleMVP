@@ -3,7 +3,7 @@
  <class>MainWindow</class>
  <widget class="QMainWindow" name="MainWindow">
   <property name="geometry"><rect><x>0</x><y>0</y><width>1920</width><height>984</height></rect></property>
-  <property name="windowTitle"><string>Two-Player Pinochle</string></property>
+  <property name="windowTitle"><string>Trickwise Pinochle</string></property>
   <widget class="QWidget" name="centralwidget"/>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry"><rect><x>0</x><y>0</y><width>1920</width><height>27</height></rect></property>
