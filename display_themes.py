@@ -41,10 +41,13 @@ THEMES = {
                 background-color: #212121;
                 color: #ececec;
             }
-            QMenu, QListWidget, QLineEdit {
+            QMenu, QListWidget, QLineEdit, QPlainTextEdit, QDateEdit {
                 background-color: #2f2f2f;
                 color: #ececec;
                 border: 1px solid #565869;
+            }
+            QLabel, QRadioButton, QCheckBox, QGroupBox {
+                color: #ececec;
             }
             QMenu::item:selected, QListWidget::item:selected {
                 background-color: #3e3f4b;

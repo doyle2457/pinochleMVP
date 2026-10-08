@@ -1,10 +1,11 @@
 from pathlib import Path
 
 from PyQt5.QtCore import QSettings, QTimer, Qt
+from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import (
     QActionGroup, QApplication, QDialog, QDialogButtonBox, QHBoxLayout,
-    QInputDialog, QLabel, QListWidget, QMainWindow, QMessageBox, QPushButton,
-    QToolButton, QVBoxLayout,
+    QFontDialog, QInputDialog, QLabel, QListWidget, QMainWindow, QMessageBox, QPushButton,
+    QSizePolicy, QToolButton, QVBoxLayout, QWidget,
 )
 
 from card_panel import (
@@ -15,21 +16,37 @@ from card_panel import (
     CardPanel,
 )
 from display_themes import DEFAULT_THEME, THEMES
-from game import Game, Player, TurnStage
+from discrepancy_dialog import DiscrepancyReportManager
+from discrepancy_reports import DiscrepancyReportStore
+from game import Game, Player, RoundPhase, TurnStage
 from saved_games import SavedGameStore
 from selectable_label import SelectableLabel
 from ui_mainwindow import Ui_MainWindow
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, save_store=None):
+    MIN_UI_FONT_SIZE = 9
+    MAX_UI_FONT_SIZE = 24
+    TRICK_RESOLUTION_DELAY_MS = 3000
+
+    def __init__(self, save_store=None, report_store=None, settings=None):
         super().__init__()
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
-        self.settings = QSettings("Trickwise", "Trickwise Pinochle")
+        self.settings = (
+            settings
+            if settings is not None
+            else QSettings("Trickwise", "Trickwise Pinochle")
+        )
         self._base_app_stylesheet = QApplication.instance().styleSheet()
         self.game = Game()
         self.save_store = save_store or SavedGameStore()
+        configured_report_directory = self.settings.value(
+            "discrepancy_report_directory", "", type=str
+        )
+        self.report_store = report_store or DiscrepancyReportStore(
+            configured_report_directory or None
+        )
 
         self.cpHand1 = CardPanel(self.game, self, "hand1")
         self.cpMeld1 = CardPanel(self.game, self, "meld1")
@@ -46,33 +63,50 @@ class MainWindow(QMainWindow):
         self.action_message = ""
         self.hint_score_events = {Player.ONE: [], Player.TWO: []}
         self.newly_drawn = {Player.ONE: set(), Player.TWO: set()}
+        self._pending_hands_before = None
+        self.trick_resolution_timer = QTimer(self)
+        self.trick_resolution_timer.setSingleShot(True)
+        self.trick_resolution_timer.timeout.connect(
+            self._complete_pending_trick_resolution
+        )
         # A meld may combine selected cards from the player's hand and cards
         # already displayed in that player's meld area.
         self.cpHand1.selection_peers = [self.cpMeld1]
         self.cpMeld1.selection_peers = [self.cpHand1]
         self.cpHand2.selection_peers = [self.cpMeld2]
         self.cpMeld2.selection_peers = [self.cpHand2]
+        self.cpMeld1.click_sources = [self.cpHand1, self.cpMeld1]
+        self.cpTrick1.click_sources = [self.cpHand1, self.cpMeld1]
+        self.cpMeld2.click_sources = [self.cpHand2, self.cpMeld2]
+        self.cpTrick2.click_sources = [self.cpHand2, self.cpMeld2]
+        self.cpTrump.click_sources = [self.cpHand1, self.cpHand2]
 
         central = self.ui.centralwidget
         main_layout = QVBoxLayout(central)
         self.main_layout = main_layout
+        self._left_column_spacers = []
 
         self.score_pad = QLabel(self)
-        self.score_pad.setStyleSheet("font-weight: bold; padding: 4px; border: 1px solid #555;")
+        self.score_pad.setStyleSheet("padding: 4px; border: 1px solid #555;")
         main_layout.addWidget(self.score_pad)
 
         row_hand2 = QHBoxLayout()
         row_hand2.addWidget(self.cpWon2, stretch=5)
         row_hand2.addWidget(self.cpHand2, stretch=45)
+        self.row_hand2 = row_hand2
         main_layout.addLayout(row_hand2, stretch=10)
 
         row_meld2 = QHBoxLayout()
+        self._add_left_column_spacer(row_meld2)
         row_meld2.addWidget(self.cpMeld2, stretch=65)
+        self.row_meld2 = row_meld2
         main_layout.addLayout(row_meld2, stretch=10)
 
         row_hint2 = QHBoxLayout()
         self.hint2 = QLabel(self)
+        self._add_left_column_spacer(row_hint2)
         row_hint2.addWidget(self.hint2, stretch=65)
+        self.row_hint2 = row_hint2
         main_layout.addLayout(row_hint2, stretch=8)
 
         row_trick = QHBoxLayout()
@@ -90,7 +124,9 @@ class MainWindow(QMainWindow):
 
         row_hint1 = QHBoxLayout()
         self.hint1 = QLabel(self)
+        self._add_left_column_spacer(row_hint1)
         row_hint1.addWidget(self.hint1, stretch=65)
+        self.row_hint1 = row_hint1
         main_layout.addLayout(row_hint1, stretch=8)
 
         score_font = self.score_pad.font()
@@ -100,6 +136,8 @@ class MainWindow(QMainWindow):
         hint_font.setBold(True)
         self.score_pad.setFont(hint_font)
         self.table_label_font = hint_font
+        self.default_ui_font = QFont(hint_font)
+        self.current_ui_font = QFont(hint_font)
         for hint in (self.hint1, self.hint2):
             hint.setFont(hint_font)
             hint.setWordWrap(True)
@@ -109,12 +147,15 @@ class MainWindow(QMainWindow):
             text_widget.setPalette(score_palette)
 
         row_meld1 = QHBoxLayout()
+        self._add_left_column_spacer(row_meld1)
         row_meld1.addWidget(self.cpMeld1, stretch=65)
+        self.row_meld1 = row_meld1
         main_layout.addLayout(row_meld1, stretch=10)
 
         row_hand1 = QHBoxLayout()
         row_hand1.addWidget(self.cpWon1, stretch=5)
         row_hand1.addWidget(self.cpHand1, stretch=45)
+        self.row_hand1 = row_hand1
         main_layout.addLayout(row_hand1, stretch=10)
 
         self.cpHand1.card_clicked.connect(self.on_card_clicked_hand1)
@@ -131,6 +172,13 @@ class MainWindow(QMainWindow):
         self._setup_game_menu()
         self.start_new_game()
         QTimer.singleShot(0, self._resize_card_panels)
+
+    def _add_left_column_spacer(self, layout):
+        """Reserve the pile column before a full-width player panel."""
+        spacer = QWidget(self.ui.centralwidget)
+        spacer.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+        layout.addWidget(spacer)
+        self._left_column_spacers.append(spacer)
 
     def _setup_game_menu(self):
         """Connect menu actions declared in the Qt Designer UI."""
@@ -166,6 +214,20 @@ class MainWindow(QMainWindow):
             )
             self.theme_action_group.addAction(action)
             self.theme_actions[theme_name] = action
+        self.font_menu = self.ui.menuQtMainWindow.addMenu("Font Options")
+        self.choose_font_action = self.font_menu.addAction("Choose Font...")
+        self.reset_font_action = self.font_menu.addAction(
+            "Reset to System Default"
+        )
+        self.choose_font_action.triggered.connect(self.choose_ui_font)
+        self.reset_font_action.triggered.connect(self.reset_ui_font)
+        self.ui.menuQtMainWindow.addSeparator()
+        self.discrepancy_report_action = self.ui.menuQtMainWindow.addAction(
+            "Discrepancy Reports..."
+        )
+        self.discrepancy_report_action.triggered.connect(
+            self.manage_discrepancy_reports
+        )
         self.row_trick.addWidget(
             self.game_menu_button, 0, Qt.AlignRight | Qt.AlignVCenter
         )
@@ -174,6 +236,12 @@ class MainWindow(QMainWindow):
             saved_theme if saved_theme in THEMES else DEFAULT_THEME,
             persist=False,
         )
+        saved_font = self.settings.value("ui_font", "", type=str)
+        restored_font = QFont()
+        if saved_font and restored_font.fromString(saved_font):
+            self.apply_ui_font(restored_font, persist=False)
+        else:
+            self.apply_ui_font(self.default_ui_font, persist=False)
         QTimer.singleShot(0, self._align_game_menu_to_hand_slot)
 
     def apply_theme(self, theme_name, persist=True):
@@ -191,7 +259,7 @@ class MainWindow(QMainWindow):
         ):
             panel.set_theme(theme)
         self.score_pad.setStyleSheet(
-            f"font-weight: bold; padding: 4px; border: 1px solid {theme['border']}; "
+            f"padding: 4px; border: 1px solid {theme['border']}; "
             f"background-color: {theme['surface']}; color: {theme['text']};"
         )
         self.game_menu_button.setStyleSheet(
@@ -202,6 +270,56 @@ class MainWindow(QMainWindow):
         )
         if persist:
             self.settings.setValue("display_theme", theme_name)
+
+    def _normalized_ui_font(self, font):
+        normalized = QFont(font)
+        point_size = normalized.pointSize()
+        if point_size <= 0:
+            point_size = self.default_ui_font.pointSize()
+        normalized.setPointSize(
+            max(self.MIN_UI_FONT_SIZE, min(self.MAX_UI_FONT_SIZE, point_size))
+        )
+        return normalized
+
+    def apply_ui_font(self, font, persist=True):
+        """Apply one selected system font to every live table-text surface."""
+        selected = self._normalized_ui_font(font)
+        self.current_ui_font = selected
+        self.table_label_font = selected
+        for widget in (
+            self.score_pad,
+            self.hint1,
+            self.hint2,
+            self.statusBar(),
+            self.game_menu_button,
+            self.ui.menuQtMainWindow,
+            self.theme_menu,
+            self.font_menu,
+        ):
+            widget.setFont(selected)
+        for panel in (
+            self.cpHand1, self.cpMeld1, self.cpWon1, self.cpTrick1,
+            self.cpHand2, self.cpMeld2, self.cpWon2, self.cpTrick2,
+            self.cpStock, self.cpTrump,
+        ):
+            panel.set_table_font(selected)
+        self._update_hint_heights()
+        if persist:
+            self.settings.setValue("ui_font", selected.toString())
+        QTimer.singleShot(0, self._resize_card_panels)
+
+    def choose_ui_font(self):
+        selected, accepted = QFontDialog.getFont(
+            self.current_ui_font,
+            self,
+            "Choose Trickwise Interface Font",
+        )
+        if accepted:
+            self.apply_ui_font(selected)
+
+    def reset_ui_font(self):
+        self.settings.remove("ui_font")
+        self.apply_ui_font(QApplication.instance().font(), persist=False)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -253,13 +371,28 @@ class MainWindow(QMainWindow):
         )
         for panel in panels:
             panel.set_card_height(card_height)
-        for panel in (
-            self.cpWon1, self.cpWon2, self.cpStock, self.cpTrump,
-        ):
-            panel.setMinimumWidth(card_width + 6)
+        # One fixed pile-column width keeps the won and stock panels aligned.
+        # The leading spacers place meld and hint content on the same boundary
+        # as the hand content, with each row layout supplying equal spacing.
+        for panel in (self.cpWon1, self.cpWon2, self.cpStock):
+            panel.setFixedWidth(card_width)
+        for spacer in self._left_column_spacers:
+            spacer.setFixedWidth(card_width)
+        self.cpTrump.setMinimumWidth(card_width)
         for panel in (self.cpTrick1, self.cpTrick2):
-            panel.setMinimumWidth(max(card_width + 6, TRICK_TARGET_MIN_WIDTH))
+            panel.setMinimumWidth(
+                max(card_width + 6, TRICK_TARGET_MIN_WIDTH)
+            )
+        self._update_hint_heights()
         QTimer.singleShot(0, self._align_game_menu_to_hand_slot)
+
+    def _update_hint_heights(self):
+        """Keep each player hint at exactly three wrapped text lines."""
+        if not hasattr(self, "hint1"):
+            return
+        height = self.hint1.fontMetrics().lineSpacing() * 3 + 6
+        for hint in (self.hint1, self.hint2):
+            hint.setFixedHeight(height)
 
     def _align_game_menu_to_hand_slot(self):
         """Place the menu anchor at the right edge of hand-card slot 12."""
@@ -295,6 +428,13 @@ class MainWindow(QMainWindow):
         popup_position.setY(popup_position.y() + 1)
         menu.popup(popup_position)
 
+    def manage_discrepancy_reports(self):
+        dialog = DiscrepancyReportManager(
+            self.report_store, settings=self.settings, parent=self
+        )
+        dialog.setFont(self.table_label_font)
+        dialog.exec_()
+
     def save_game_state(self):
         name, accepted = QInputDialog.getText(self, "Save Game State", "Saved game name:")
         if not accepted:
@@ -326,6 +466,8 @@ class MainWindow(QMainWindow):
 
     def _load_saved_game(self, name):
         try:
+            self.trick_resolution_timer.stop()
+            self._pending_hands_before = None
             self.game = self.save_store.load(name)
             for panel in (
                 self.cpHand1, self.cpMeld1, self.cpWon1, self.cpHint1, self.cpTrick1,
@@ -338,6 +480,7 @@ class MainWindow(QMainWindow):
             self.action_message = f'Resumed "{name}".'
             self.statusBar().showMessage(self.action_message)
             self.refresh_ui()
+            self._schedule_pending_trick_resolution()
         except (OSError, ValueError, KeyError, TypeError) as error:
             QMessageBox.critical(self, "Unable to Resume", str(error))
 
@@ -382,6 +525,8 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Unable to Delete", str(error))
 
     def start_new_game(self):
+        self.trick_resolution_timer.stop()
+        self._pending_hands_before = None
         self.game.create_new_game()
         self.newly_drawn = {Player.ONE: set(), Player.TWO: set()}
         self.hint_score_events = {Player.ONE: [], Player.TWO: []}
@@ -399,27 +544,53 @@ class MainWindow(QMainWindow):
         self.cpMeld2.set_cards(self.game.meld2)
         self.cpTrick1.set_cards([card_id for player, card_id in self.game.trick if player.value == 1])
         self.cpTrick2.set_cards([card_id for player, card_id in self.game.trick if player.value == 2])
-        card_back = Path(self.game.deck.image_dir) / "back_Red.png"
+        black_card_back = Path(self.game.deck.image_dir) / "back_Black.png"
+        red_card_back = Path(self.game.deck.image_dir) / "back_Red.png"
         selectable_stock_card = (
             self.game.stock[0]
             if self.game.turn_stage is TurnStage.LAST_DRAW_CHOICE and len(self.game.stock) == 1
             else None
         )
-        self.cpStock.set_card_back(
-            str(card_back), len(self.game.stock), selectable_card_id=selectable_stock_card
-        )
-        self.cpWon1.set_card_back(str(card_back), len(self.game.won1))
-        self.cpWon2.set_card_back(str(card_back), len(self.game.won2))
+        if self.game.stock:
+            self.cpStock.set_card_back(
+                str(black_card_back),
+                len(self.game.stock),
+                selectable_card_id=selectable_stock_card,
+            )
+        else:
+            self.cpStock.clear()
+        self.cpWon1.set_card_back(str(red_card_back), len(self.game.won1))
+        self.cpWon2.set_card_back(str(red_card_back), len(self.game.won2))
         if self.game.trump:
             self.cpTrump.set_cards(self.game.trump)
         else:
             self.cpTrump.clear()
-        self.score_pad.setText(
-            f"Phase: {self.game.phase.value} | Player 1 round {self.game.round_meld_scores[1]} + "
+            suit = self.game.trump_suit.title() if self.game.trump_suit else "Unknown"
+            self.cpTrump.set_drop_hint(f"TRUMP SUIT\n{suit.upper()}")
+        trick_pending = self.game.turn_stage is TurnStage.TRICK_RESOLUTION
+        for panel in (
+            self.cpMeld1,
+            self.cpMeld2,
+            self.cpTrick1,
+            self.cpTrick2,
+        ):
+            panel.set_drop_enabled(not trick_pending)
+        self.cpTrump.set_drop_enabled(
+            bool(self.game.trump)
+            and self.game.phase is RoundPhase.MELD_PHASE
+            and not trick_pending
+        )
+        score_text = (
+            f"Round: {self.game.round_number} | "
+            f"Phase: {self.game.phase.value.replace('_', ' ').title()} | "
+            f"Player 1 round {self.game.round_meld_scores[1]} + "
             f"{self.game.round_counter_scores[1]}, total {self.game.game_scores[1]} | "
             f"Player 2 round {self.game.round_meld_scores[2]} + {self.game.round_counter_scores[2]}, "
             f"total {self.game.game_scores[2]}"
         )
+        if self.action_message:
+            score_text += f" | {self.action_message}"
+        self.score_pad.setText(score_text)
         self.hint1.setText(self._hint_for(1))
         self.hint2.setText(self._hint_for(2))
 
@@ -436,6 +607,8 @@ class MainWindow(QMainWindow):
             guidance = (
                 "Choose the final draw." if player is self.game.leader else "Waiting."
             )
+        elif self.game.turn_stage is TurnStage.TRICK_RESOLUTION:
+            guidance = "Evaluating the completed trick."
         else:
             guidance = "Waiting."
 
@@ -491,8 +664,15 @@ class MainWindow(QMainWindow):
                 result = self.game.play_to_trick(source_player, card_ids[0])
                 self.action_message = result.message
                 if result.success:
-                    self.newly_drawn[Player.ONE].update(set(self.game.hand1) - hands_before[Player.ONE])
-                    self.newly_drawn[Player.TWO].update(set(self.game.hand2) - hands_before[Player.TWO])
+                    if self.game.turn_stage is TurnStage.TRICK_RESOLUTION:
+                        self._pending_hands_before = hands_before
+                    else:
+                        self.newly_drawn[Player.ONE].update(
+                            set(self.game.hand1) - hands_before[Player.ONE]
+                        )
+                        self.newly_drawn[Player.TWO].update(
+                            set(self.game.hand2) - hands_before[Player.TWO]
+                        )
         elif target.startswith("meld"):
             options = self.game.meld_options(source_player, card_ids)
             if len(options) != 1:
@@ -513,6 +693,52 @@ class MainWindow(QMainWindow):
                 self.hint_score_events = {Player.ONE: [], Player.TWO: []}
         self.statusBar().showMessage(self.action_message)
         self.refresh_ui()
+        self._schedule_pending_trick_resolution()
+
+    def _schedule_pending_trick_resolution(self):
+        """Start the non-blocking pause once both trick cards are visible."""
+        if self.game.turn_stage is not TurnStage.TRICK_RESOLUTION:
+            return
+        if self._pending_hands_before is None:
+            self._pending_hands_before = {
+                Player.ONE: set(self.game.hand1),
+                Player.TWO: set(self.game.hand2),
+            }
+        self.trick_resolution_timer.start(self.TRICK_RESOLUTION_DELAY_MS)
+
+    def _complete_pending_trick_resolution(self):
+        """Dispose a displayed trick when its presentation timer expires."""
+        if self.game.turn_stage is not TurnStage.TRICK_RESOLUTION:
+            self._pending_hands_before = None
+            return
+        hands_before = self._pending_hands_before or {
+            Player.ONE: set(self.game.hand1),
+            Player.TWO: set(self.game.hand2),
+        }
+        result = self.game.resolve_trick()
+        self._pending_hands_before = None
+        self.action_message = result.message
+        if result.success:
+            self.newly_drawn[Player.ONE].update(
+                set(self.game.hand1) - hands_before[Player.ONE]
+            )
+            self.newly_drawn[Player.TWO].update(
+                set(self.game.hand2) - hands_before[Player.TWO]
+            )
+            self.hint_score_events = {Player.ONE: [], Player.TWO: []}
+            self._start_next_round_if_complete()
+        self.statusBar().showMessage(self.action_message)
+        self.refresh_ui()
+
+    def _start_next_round_if_complete(self):
+        """Deal immediately after a completed non-winning round."""
+        if self.game.phase is RoundPhase.ROUND_COMPLETE:
+            result = self.game.start_round()
+            self.newly_drawn = {Player.ONE: set(), Player.TWO: set()}
+            self.hint_score_events = {Player.ONE: [], Player.TWO: []}
+            self.action_message = f"Round complete. {result.message}"
+            return True
+        return False
 
     def on_card_clicked_hand1(self, card_index, hand_position):
         self.newly_drawn[Player.ONE].discard(card_index)
@@ -523,6 +749,10 @@ class MainWindow(QMainWindow):
     def on_last_draw_card_clicked(self, card_index, hand_position):
         """Give the final trick winner their chosen stock/trump card."""
         if self.game.turn_stage is not TurnStage.LAST_DRAW_CHOICE:
+            payload = self.cpTrump._selected_payload()
+            if payload:
+                source, cards = payload
+                self.on_cards_dropped("trump", source, cards)
             return
         player = self.game.leader
         hands_before = {

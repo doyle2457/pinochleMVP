@@ -25,10 +25,33 @@ class GameRulesTests(unittest.TestCase):
         self.assertTrue(self.game.play_to_trick(leader, self.game.legal_cards(leader)[0]).success)
         responder = self.game.responder
         self.assertTrue(self.game.play_to_trick(responder, self.game.legal_cards(responder)[0]).success)
+        self.assertEqual(TurnStage.TRICK_RESOLUTION, self.game.turn_stage)
+        self.assertEqual(2, len(self.game.trick))
+        self.assertEqual((), self.game.available_actions(Player.ONE))
+        self.assertEqual((), self.game.available_actions(Player.TWO))
+        self.assertTrue(self.game.resolve_trick().success)
         self.assertEqual(21, len(self.game.stock))
         self.assertEqual(TurnStage.LEAD, self.game.turn_stage)
         self.assertEqual(self.game.leader, self.game.eligible_melder)
         self.assertTrue(self.game.validate_invariants())
+
+    def test_trick_cannot_resolve_before_both_cards_are_played(self):
+        result = self.game.resolve_trick()
+        self.assertFalse(result.success)
+        self.assertEqual("trick_not_pending", result.code)
+
+    def test_pending_trick_survives_saved_game_round_trip(self):
+        leader = self.game.leader
+        self.game.play_to_trick(leader, self.game.legal_cards(leader)[0])
+        responder = self.game.responder
+        self.game.play_to_trick(
+            responder,
+            self.game.legal_cards(responder)[0],
+        )
+        restored = Game.from_dict(self.game.to_dict())
+        self.assertEqual(TurnStage.TRICK_RESOLUTION, restored.turn_stage)
+        self.assertEqual(2, len(restored.trick))
+        self.assertTrue(restored.resolve_trick().success)
 
     def test_invalid_action_leaves_state_unchanged(self):
         before = (list(self.game.hand1), list(self.game.hand2), list(self.game.stock), list(self.game.trick))
@@ -210,6 +233,19 @@ class GameRulesTests(unittest.TestCase):
         self.assertTrue(result.success)
         self.assertEqual(dealer.other, self.game.dealer)
 
+    def test_round_number_starts_at_one_and_advances(self):
+        self.assertEqual(1, self.game.round_number)
+        self.game.phase = RoundPhase.ROUND_COMPLETE
+        self.assertTrue(self.game.start_round().success)
+        self.assertEqual(2, self.game.round_number)
+
+    def test_starting_new_game_resets_round_number(self):
+        self.game.phase = RoundPhase.ROUND_COMPLETE
+        self.game.start_round()
+        self.assertEqual(2, self.game.round_number)
+        self.game.start_game()
+        self.assertEqual(1, self.game.round_number)
+
     def test_final_draw_choice_starts_strict_phase(self):
         self.game.phase = RoundPhase.MELD_PHASE
         self.game.leader = Player.ONE
@@ -240,6 +276,45 @@ class GameRulesTests(unittest.TestCase):
         self.assertIn(5, self.game.hand2)
         self.assertEqual(RoundPhase.TRICK_PHASE, self.game.phase)
 
+    def test_trump_suit_persists_after_face_up_card_is_drawn(self):
+        self.game.phase = RoundPhase.MELD_PHASE
+        self.game.leader = Player.ONE
+        self.game.responder = Player.TWO
+        self.game.turn_stage = TurnStage.LAST_DRAW_CHOICE
+        self.game.stock = [3]
+        self.game._trump_card = 13  # spades ace
+        self.game._trump_suit = "spades"
+        self.game.hand1 = []
+        self.game.hand2 = []
+
+        self.assertTrue(self.game.choose_last_draw(Player.ONE, 3).success)
+        self.assertEqual("spades", self.game.trump_suit)
+
+        diamond_ten = next(
+            card_id for card_id, card in self.game.deck.cards.items()
+            if card.suit == "diamonds" and card.rank == "10"
+        )
+        spade_jack = next(
+            card_id for card_id, card in self.game.deck.cards.items()
+            if card.suit == "spades" and card.rank == "J"
+        )
+        self.assertTrue(self.game._beats(spade_jack, diamond_ten, "diamonds"))
+
+    def test_declared_meld_panel_cards_are_kept_sorted(self):
+        self.game._trump_card = 1
+        self.game._trump_suit = "hearts"
+        self.game.hand1 = [31, 29]
+        self.game.meld1 = []
+        self.game.leader = Player.ONE
+        self.game.responder = Player.TWO
+        self.game.eligible_melder = Player.ONE
+        self.game.turn_stage = TurnStage.LEAD
+        result = self.game.declare_meld(
+            Player.ONE, MeldType.MARRIAGE, [31, 29]
+        )
+        self.assertTrue(result.success)
+        self.assertEqual([29, 31], self.game.meld1)
+
     def test_counter_scoring_completes_game_at_target(self):
         self.game.game_scores = {Player.ONE: 990, Player.TWO: 800}
         self.game.won1 = [1]  # ace: ten counter points
@@ -256,6 +331,12 @@ class GameRulesTests(unittest.TestCase):
         restored = Game.from_dict(snapshot)
         self.assertEqual(snapshot, restored.to_dict())
         self.assertTrue(restored.validate_invariants())
+
+    def test_legacy_saved_game_defaults_to_first_round(self):
+        snapshot = self.game.to_dict()
+        snapshot.pop("round_number")
+        restored = Game.from_dict(snapshot)
+        self.assertEqual(1, restored.round_number)
 
     def test_saved_game_store_lists_loads_and_deletes_named_games(self):
         with TemporaryDirectory() as directory:

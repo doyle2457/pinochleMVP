@@ -37,35 +37,58 @@ class CardPanel(QWidget):
         self._source_pixmaps = []
         self._badges = []
         self._drop_hint = None
+        self.drop_enabled = True
+        self.click_sources = []
         self._theme = THEMES[DEFAULT_THEME]
+        self._table_font = self.font()
         self._preferred_card_height = CARD_H
         self.selection_peers = []
         self.layout = QHBoxLayout(self)
         self.layout.setSpacing(8)
         self.layout.setContentsMargins(0, 0, 0, 0)
-        self.layout.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self.layout.setAlignment(
+            (Qt.AlignHCenter if panel_name.startswith("trick") else Qt.AlignLeft)
+            | Qt.AlignVCenter
+        )
         self.setAcceptDrops(True)
         # Use one card-derived height for every table panel.  Letting the
         # vertical layouts distribute surplus pixels independently can make
         # otherwise identical rows differ by a pixel at some window sizes.
         self.setFixedHeight(CARD_H + PANEL_PADDING)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        if panel_name.startswith(("trick", "meld")):
-            area_name = "TRICK" if panel_name.startswith("trick") else "MELD"
-            player_number = panel_name[-1]
+        if panel_name.startswith(("trick", "meld")) or panel_name == "trump":
+            area_name = (
+                "TRICK" if panel_name.startswith("trick")
+                else "MELD" if panel_name.startswith("meld")
+                else "TRUMP"
+            )
             self.setMinimumWidth(
                 TRICK_TARGET_MIN_WIDTH
                 if panel_name.startswith("trick")
                 else CARD_W + 16
             )
-            card_word = "CARD" if area_name == "TRICK" else "SELECTED CARDS"
+            if panel_name == "trump":
+                hint = "TRUMP\nDROP DIX HERE"
+            else:
+                player_number = panel_name[-1]
+                card_word = "CARD" if area_name == "TRICK" else "SELECTED CARDS"
+                if area_name == "TRICK":
+                    hint = (
+                        f"{Player(int(player_number)).display_name.upper()}\n"
+                        "TRICK\nDROP HERE"
+                    )
+                else:
+                    hint = (
+                        f"{Player(int(player_number)).display_name.upper()} "
+                        f"{area_name}\nDROP {card_word} HERE"
+                    )
             self._drop_hint = QLabel(
-                f"{Player(int(player_number)).display_name.upper()} {area_name}\n"
-                f"DROP {card_word} HERE",
+                hint,
                 self,
             )
             self._drop_hint.setAlignment(Qt.AlignCenter)
             self._drop_hint.setAttribute(Qt.WA_TransparentForMouseEvents)
+            self._drop_hint.setFont(self._table_font)
             self.layout.addWidget(self._drop_hint)
             self._set_drop_target_style(False)
 
@@ -73,6 +96,7 @@ class CardPanel(QWidget):
         """Make play-area panels visible and highlight them during a drag."""
         if self._drop_hint is None:
             return
+        active = active and self.drop_enabled
         color = self._theme["active_target"] if active else self._theme["muted"]
         background = (
             self._theme["target_background"]
@@ -83,7 +107,37 @@ class CardPanel(QWidget):
             f"CardPanel {{ border: 3px dashed {color}; border-radius: 8px; "
             f"background-color: {background}; }}"
         )
-        self._drop_hint.setStyleSheet(f"color: {color}; font-weight: bold;")
+        self._drop_hint.setStyleSheet(f"color: {color};")
+
+    def set_table_font(self, font):
+        """Apply the user-selected font to panel text, not card artwork."""
+        self._table_font = font
+        if self._drop_hint is not None:
+            self._drop_hint.setFont(font)
+        for badge in self._badges:
+            badge.setFont(font)
+            badge.adjustSize()
+
+    def set_drop_enabled(self, enabled):
+        self.drop_enabled = bool(enabled)
+        self.setAcceptDrops(self.drop_enabled)
+        self._set_drop_target_style(False)
+
+    def set_drop_hint(self, text):
+        if self._drop_hint is not None:
+            self._drop_hint.setText(text)
+            self._drop_hint.show()
+
+    def _selected_payload(self):
+        selected = [
+            (panel.panel_name, panel.cards[index])
+            for panel in self.click_sources
+            for index, widget in enumerate(panel.labels)
+            if widget.selected
+        ]
+        if not selected:
+            return None
+        return selected[0][0], [card_id for _source, card_id in selected]
 
     def set_theme(self, theme):
         """Refresh this panel's themed drop-target treatment."""
@@ -98,9 +152,9 @@ class CardPanel(QWidget):
             f"background: {self._theme['badge_background']}; "
             f"color: {self._theme['badge_text']}; "
             f"border: 1px solid {self._theme['border']}; "
-            "border-radius: 8px; padding: 2px 6px; "
-            "font-size: 15pt; font-weight: bold;"
+            "border-radius: 8px; padding: 2px 6px;"
         )
+        badge.setFont(self._table_font)
         badge.adjustSize()
 
     def resizeEvent(self, event):
@@ -117,23 +171,13 @@ class CardPanel(QWidget):
         self._resize_cards()
 
     def _card_size(self):
-        count = len(self.labels)
-        if not count:
+        if not self.labels:
             return CARD_W, CARD_H
         card_h = min(
             self._preferred_card_height,
             max(1, self.height() - RAISE_PIXELS),
         )
         card_w = round(card_h * CARD_W / CARD_H)
-        # Multi-card rows must fit all cards across the panel. Single-card
-        # piles and trick targets use the common table size chosen from the
-        # hand geometry; shrinking those independently made them look shorter
-        # on high-DPI Linux layouts while the hand remained correctly sized.
-        if self.panel_name.startswith(("hand", "meld")):
-            available_width = max(1, self.width() - self.layout.spacing() * (count - 1))
-            if card_w * count > available_width:
-                card_w = max(1, available_width // count)
-                card_h = max(1, round(card_w * CARD_H / CARD_W))
         return card_w, card_h
 
     def _resize_cards(self):
@@ -213,7 +257,7 @@ class CardPanel(QWidget):
         return cursor
 
     def dragEnterEvent(self, event):
-        if event.mimeData().hasFormat("application/x-pinochle-cards"):
+        if self.drop_enabled and event.mimeData().hasFormat("application/x-pinochle-cards"):
             self._set_drop_target_style(True)
             event.acceptProposedAction()
 
@@ -226,6 +270,9 @@ class CardPanel(QWidget):
         event.accept()
 
     def dropEvent(self, event):
+        if not self.drop_enabled:
+            event.ignore()
+            return
         try:
             payload = json.loads(bytes(event.mimeData().data("application/x-pinochle-cards")).decode("utf-8"))
             self.cards_dropped.emit(payload["source"], payload["cards"])
@@ -234,6 +281,30 @@ class CardPanel(QWidget):
             event.ignore()
         finally:
             self._set_drop_target_style(False)
+
+    def enterEvent(self, event):
+        if self.drop_enabled and self._selected_payload():
+            self._set_drop_target_style(True)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        if not self.underMouse():
+            self._set_drop_target_style(False)
+        super().leaveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        payload = self._selected_payload()
+        if (
+            self.drop_enabled
+            and payload
+            and event.button() == Qt.LeftButton
+        ):
+            source, cards = payload
+            self.cards_dropped.emit(source, cards)
+            self._set_drop_target_style(False)
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
 
     def set_cards(self, card_index_list, newly_drawn_ids=()):
         self.clear()

@@ -1,6 +1,7 @@
 # Trickwise Pinochle
 
 Trickwise Pinochle is a two-player desktop Pinochle game with drag-and-drop
+and select-then-click
 play, light and dark themes, scoring, saved games, and contextual hints for
 turn actions, current melds, and near melds.
 
@@ -12,11 +13,14 @@ near melds from the cards that have already been exposed.
 ## Highlights
 
 - Two-player Pinochle with legal-play enforcement and scoring
-- Drag-and-drop play with enlarged action borders and drop indicators
+- Drag-and-drop or select-then-click play with enlarged, glowing drop targets
+- Persistent trump-suit display throughout the strict Trick Phase
 - Turn-aware guidance for leading, responding, waiting, melding, and Dix swaps
 - Current-meld and near-meld analysis
 - Light and dark display themes
+- System-font selection with persistence and reset
 - Saved games
+- Built-in discrepancy reports for recording, prioritizing, and tracking issues
 - Responsive layouts for Windows and Linux displays
 
 ## How Codex and GPT-5.6 were used
@@ -41,7 +45,33 @@ They were used to:
 Codex did more than generate isolated code. It helped revise the architecture,
 reason about complicated game states, test changes iteratively, and refine the
 interface from observations made while playing the game. The final release
-passes 33 automated tests.
+passes 67 automated tests.
+
+## Discrepancy reports
+
+Choose **Game Options → Discrepancy Reports...** to create a numbered
+discrepancy report (DR), assign its priority and disposition status, document
+the observed and expected behavior, propose a solution, and record the eventual
+resolution.
+
+Disposition decisions are also clickable and include contextual help for
+**Fix Planned**, **Deferred**, **Cannot Reproduce**, **Duplicate**,
+**Working as Designed**, and **More Information Needed**.
+
+Reports are stored under the current user's home directory:
+
+```text
+~/.pinochleMVP/discrepancy_reports
+```
+
+Every DR is saved as an editable JSON record and a matching Markdown file. The
+Markdown copy can be opened directly or given to Codex/GPT for analysis,
+planning, implementation, and verification.
+
+Use **Choose Folder** in the DR manager to redirect future reports to a shared
+or synchronized directory. For example, reports created on a Linux laptop can
+be written to a mounted Windows share so Codex on the Windows desktop can read
+and disposition the same Markdown files.
 
 ## Requirements
 

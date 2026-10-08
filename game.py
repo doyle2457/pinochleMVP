@@ -41,6 +41,7 @@ class RoundPhase(str, Enum):
 class TurnStage(str, Enum):
     LEAD = "lead"
     RESPONSE = "response"
+    TRICK_RESOLUTION = "trick_resolution"
     LAST_DRAW_CHOICE = "last_draw_choice"
     ROUND_COMPLETE = "round_complete"
 
@@ -122,8 +123,10 @@ class Game:
         self._player_started: set[Player] = set()
         self._meld_declared_this_turn = False
         self._trump_card: Optional[int] = None
+        self._trump_suit: Optional[str] = None
         self._active_melds: list[MeldRecord] = []
         self.broken_melds: set[tuple[Player, MeldType, tuple[int, ...]]] = set()
+        self.round_number = 0
         self.game_scores = {Player.ONE: 0, Player.TWO: 0}
         self.round_meld_scores = {Player.ONE: 0, Player.TWO: 0}
         self.round_counter_scores = {Player.ONE: 0, Player.TWO: 0}
@@ -194,6 +197,7 @@ class Game:
 
     def start_game(self) -> ActionResult:
         """Reset cumulative scores and deal the first round with random dealer."""
+        self.round_number = 0
         self.game_scores = {Player.ONE: 0, Player.TWO: 0}
         self.shared_winners = ()
         self.dealer = self.rng.choice((Player.ONE, Player.TWO))
@@ -233,6 +237,7 @@ class Game:
             "player_started": [value.value for value in sorted(self._player_started)],
             "meld_declared_this_turn": self._meld_declared_this_turn,
             "trump_card": self._trump_card,
+            "trump_suit": self._trump_suit,
             "active_melds": [
                 {"player": record.player.value, "meld_type": record.meld_type.value,
                  "card_ids": list(record.card_ids), "points": record.points}
@@ -242,6 +247,7 @@ class Game:
                 {"player": owner.value, "meld_type": meld_type.value, "card_ids": list(card_ids)}
                 for owner, meld_type, card_ids in self.broken_melds
             ],
+            "round_number": self.round_number,
             "game_scores": scores(self.game_scores),
             "round_meld_scores": scores(self.round_meld_scores),
             "round_counter_scores": scores(self.round_counter_scores),
@@ -277,6 +283,9 @@ class Game:
         game._player_started = {Player(int(value)) for value in data["player_started"]}
         game._meld_declared_this_turn = bool(data["meld_declared_this_turn"])
         game._trump_card = data["trump_card"]
+        game._trump_suit = data.get("trump_suit")
+        if game._trump_suit is None and game._trump_card is not None:
+            game._trump_suit = game._card(game._trump_card).suit
         game._active_melds = [
             MeldRecord(Player(int(item["player"])), MeldType(item["meld_type"]),
                        tuple(int(card_id) for card_id in item["card_ids"]), int(item["points"]))
@@ -287,6 +296,11 @@ class Game:
              tuple(int(card_id) for card_id in item["card_ids"]))
             for item in data["broken_melds"]
         }
+        game.round_number = int(
+            data.get("round_number", 1 if game.dealer is not None else 0)
+        )
+        if game.round_number < 0:
+            raise ValueError("Saved game has an invalid round number.")
         game.game_scores = as_scores(data["game_scores"])
         game.round_meld_scores = as_scores(data["round_meld_scores"])
         game.round_counter_scores = as_scores(data["round_counter_scores"])
@@ -308,6 +322,7 @@ class Game:
         return game
 
     def _deal_round(self) -> ActionResult:
+        self.round_number += 1
         self.deck.build_deck()
         self.rng.shuffle(self.deck.indices)
         self._reset_zones()
@@ -318,6 +333,7 @@ class Game:
         self.hand1 = self.deck.deal(12)
         self.hand2 = self.deck.deal(12)
         self._trump_card = self.deck.deal(1)[0]
+        self._trump_suit = self._card(self._trump_card).suit
         self.stock = list(self.deck.indices)
         self.hand1.sort()
         self.hand2.sort()
@@ -505,10 +521,12 @@ class Game:
 
     @property
     def trump_suit(self) -> Optional[str]:
+        # While the face-up card exists it is authoritative (and preserves
+        # compatibility with controlled test/game setups). Once that card is
+        # drawn, retain the round's independently stored suit.
         if self._trump_card is not None:
             return self._card(self._trump_card).suit
-        dix = next((meld for meld in self._active_melds if meld.meld_type is MeldType.DIX), None)
-        return self._card(dix.card_ids[0]).suit if dix else None
+        return self._trump_suit
 
     def swap_dix(self, player: Player, card_id: int) -> ActionResult:
         if not self._can_swap_dix(player):
@@ -563,6 +581,7 @@ class Game:
             if card_id in self.hands[player]:
                 self.hands[player].remove(card_id)
                 self.melds[player].append(card_id)
+        self.melds[player].sort()
         self._active_melds.append(MeldRecord(player, actual_type, ids, points))
         self.round_meld_scores[player] += points
         self._meld_declared_this_turn = True
@@ -580,6 +599,23 @@ class Game:
         if self.turn_stage is TurnStage.LEAD:
             self.turn_stage = TurnStage.RESPONSE
             return ActionResult(True, message="Lead accepted; waiting for the response.")
+        self.turn_stage = TurnStage.TRICK_RESOLUTION
+        return ActionResult(
+            True,
+            code="trick_pending",
+            message="Both cards played; resolving in 3 seconds.",
+        )
+
+    def resolve_trick(self) -> ActionResult:
+        """Resolve the two displayed cards after the presentation pause."""
+        if (
+            self.turn_stage is not TurnStage.TRICK_RESOLUTION
+            or len(self.trick) != 2
+        ):
+            return self._error(
+                "trick_not_pending",
+                "There is no completed trick waiting to be resolved.",
+            )
         return self._resolve_trick()
 
     def choose_last_draw(self, player: Player, card_id: int) -> ActionResult:
